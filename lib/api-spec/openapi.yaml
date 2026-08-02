@@ -3,13 +3,24 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Invoicing Database API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: customers
+    description: Customer management
+  - name: products
+    description: Product/service catalog
+  - name: invoices
+    description: Invoice management
+  - name: line-items
+    description: Invoice line items
+  - name: dashboard
+    description: Dashboard summary data
+
 paths:
   /healthz:
     get:
@@ -24,6 +35,481 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Customers ──────────────────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Filter by name or email
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /customers/{id}/invoices:
+    get:
+      operationId: getCustomerInvoices
+      tags: [customers]
+      summary: Get invoices for a customer
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceWithCustomer"
+
+  # ── Products ───────────────────────────────────────────────────────────────
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products/services
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product/service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Delete a product
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Invoices ───────────────────────────────────────────────────────────────
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List all invoices
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [draft, sent, paid, overdue]
+        - in: query
+          name: customerId
+          schema:
+            type: integer
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceWithCustomer"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create an invoice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "201":
+          description: Created invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/summary:
+    get:
+      operationId: getInvoiceSummary
+      tags: [dashboard]
+      summary: Get dashboard summary totals
+      responses:
+        "200":
+          description: Summary totals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceSummary"
+
+  /invoices/recent:
+    get:
+      operationId: getRecentInvoices
+      tags: [dashboard]
+      summary: Get recent invoices with customer name
+      responses:
+        "200":
+          description: Recent invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceWithCustomer"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get an invoice with its line items
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice with line items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update an invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceUpdate"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+    delete:
+      operationId: deleteInvoice
+      tags: [invoices]
+      summary: Delete an invoice
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /invoices/{id}/status:
+    patch:
+      operationId: updateInvoiceStatus
+      tags: [invoices]
+      summary: Update invoice status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceStatusUpdate"
+      responses:
+        "200":
+          description: Updated invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  # ── Line Items ─────────────────────────────────────────────────────────────
+  /invoices/{invoiceId}/line-items:
+    get:
+      operationId: listLineItems
+      tags: [line-items]
+      summary: List line items for an invoice
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Line items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LineItem"
+    post:
+      operationId: createLineItem
+      tags: [line-items]
+      summary: Add a line item to an invoice
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LineItemInput"
+      responses:
+        "201":
+          description: Created line item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineItem"
+
+  /invoices/{invoiceId}/line-items/{id}:
+    patch:
+      operationId: updateLineItem
+      tags: [line-items]
+      summary: Update a line item
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LineItemUpdate"
+      responses:
+        "200":
+          description: Updated line item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LineItem"
+    delete:
+      operationId: deleteLineItem
+      tags: [line-items]
+      summary: Delete a line item
+      parameters:
+        - in: path
+          name: invoiceId
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +520,366 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    # ── Customer ──────────────────────────────────────────────────────────────
+    Customer:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        city:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        zip:
+          type: ["string", "null"]
+        country:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        flatNumber:
+          type: ["string", "null"]
+        defaultRent:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+
+    CustomerInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        country:
+          type: string
+        notes:
+          type: string
+        flatNumber:
+          type: string
+        defaultRent:
+          type: number
+          minimum: 0
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        country:
+          type: string
+        notes:
+          type: string
+        flatNumber:
+          type: string
+        defaultRent:
+          type: number
+          minimum: 0
+
+    # ── Product ───────────────────────────────────────────────────────────────
+    Product:
+      type: object
+      required: [id, name, unitPrice, unit, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        unitPrice:
+          type: number
+        unit:
+          type: string
+          enum: [each, hour, day, month, flat]
+        createdAt:
+          type: string
+
+    ProductInput:
+      type: object
+      required: [name, unitPrice, unit]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        unitPrice:
+          type: number
+          minimum: 0
+        unit:
+          type: string
+          enum: [each, hour, day, month, flat]
+
+    ProductUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        unitPrice:
+          type: number
+          minimum: 0
+        unit:
+          type: string
+          enum: [each, hour, day, month, flat]
+
+    # ── Invoice ───────────────────────────────────────────────────────────────
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, customerId, status, issueDate, dueDate, subtotal, taxRate, taxAmount, total, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        invoiceNumber:
+          type: string
+        customerId:
+          type: integer
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue]
+        issueDate:
+          type: string
+        dueDate:
+          type: string
+        notes:
+          type: ["string", "null"]
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    InvoiceWithCustomer:
+      type: object
+      required: [id, invoiceNumber, customerId, customerName, status, issueDate, dueDate, subtotal, taxRate, taxAmount, total, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        invoiceNumber:
+          type: string
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue]
+        issueDate:
+          type: string
+        dueDate:
+          type: string
+        notes:
+          type: ["string", "null"]
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    InvoiceDetail:
+      type: object
+      required: [id, invoiceNumber, customerId, customerName, status, issueDate, dueDate, subtotal, taxRate, taxAmount, total, lineItems, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        invoiceNumber:
+          type: string
+        customerId:
+          type: integer
+        customerName:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue]
+        issueDate:
+          type: string
+        dueDate:
+          type: string
+        notes:
+          type: ["string", "null"]
+        subtotal:
+          type: number
+        taxRate:
+          type: number
+        taxAmount:
+          type: number
+        total:
+          type: number
+        lineItems:
+          type: array
+          items:
+            $ref: "#/components/schemas/LineItem"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    InvoiceInput:
+      type: object
+      required: [customerId, issueDate, dueDate]
+      properties:
+        customerId:
+          type: integer
+        issueDate:
+          type: string
+        dueDate:
+          type: string
+        notes:
+          type: string
+        taxRate:
+          type: number
+          minimum: 0
+          maximum: 100
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue]
+
+    InvoiceUpdate:
+      type: object
+      properties:
+        customerId:
+          type: integer
+        issueDate:
+          type: string
+        dueDate:
+          type: string
+        notes:
+          type: string
+        taxRate:
+          type: number
+          minimum: 0
+          maximum: 100
+
+    InvoiceStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [draft, sent, paid, overdue]
+
+    InvoiceSummary:
+      type: object
+      required: [totalInvoiced, totalPaid, totalOutstanding, totalOverdue, invoiceCount, customerCount]
+      properties:
+        totalInvoiced:
+          type: number
+        totalPaid:
+          type: number
+        totalOutstanding:
+          type: number
+        totalOverdue:
+          type: number
+        invoiceCount:
+          type: integer
+        customerCount:
+          type: integer
+
+    # ── Line Item ─────────────────────────────────────────────────────────────
+    LineItem:
+      type: object
+      required: [id, invoiceId, description, quantity, unitPrice, amount]
+      properties:
+        id:
+          type: integer
+        invoiceId:
+          type: integer
+        productId:
+          type: ["integer", "null"]
+        description:
+          type: string
+        quantity:
+          type: number
+        unitPrice:
+          type: number
+        amount:
+          type: number
+
+    LineItemInput:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        productId:
+          type: integer
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+          minimum: 0
+        unitPrice:
+          type: number
+          minimum: 0
+
+    LineItemUpdate:
+      type: object
+      properties:
+        productId:
+          type: integer
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+          minimum: 0
+        unitPrice:
+          type: number
+          minimum: 0

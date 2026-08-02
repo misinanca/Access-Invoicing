@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Invoicing Database"
+version = "1.0.0"
+id = "artifacts/invoicing-db"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19044
+
+[services.development]
+run = "pnpm --filter @workspace/invoicing-db run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/invoicing-db", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/invoicing-db/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19044"
+BASE_PATH = "/"
