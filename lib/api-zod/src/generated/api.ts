@@ -392,6 +392,7 @@ export const GetInvoiceResponse = zod.object({
   "invoiceNumber": zod.string(),
   "customerId": zod.number().int(),
   "customerName": zod.string(),
+  "customerEmail": zod.string().nullable(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),

@@ -31,6 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'wouter';
 
 const DEFAULT_RATE = 4.97;
 
@@ -451,6 +452,9 @@ function GenerateRentInvoices({
   const createInvoice = useCreateInvoice();
   const createLineItem = useCreateLineItem();
   const [generatedCount, setGeneratedCount] = useState(0);
+  const [generatedInvoices, setGeneratedInvoices] = useState<
+    Array<{ id: number; invoiceNumber: string; customerName: string }>
+  >([]);
 
   const customersWithRent = customers.filter((customer) => Number(customer.defaultRent ?? 0) > 0);
   const selectedCustomers = customersWithRent.filter((customer) =>
@@ -487,6 +491,7 @@ function GenerateRentInvoices({
 
     try {
       let completed = 0;
+      const createdInvoices: Array<{ id: number; invoiceNumber: string; customerName: string }> = [];
       for (const customer of selectedCustomers) {
         const rentEur = Number(customer.defaultRent ?? 0);
         const rentRon = Number((rentEur * rate).toFixed(2));
@@ -521,10 +526,16 @@ function GenerateRentInvoices({
             unitPrice: rentRon,
           },
         });
+        createdInvoices.push({
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: customer.name,
+        });
         completed += 1;
         setGeneratedCount(completed);
       }
 
+      setGeneratedInvoices(createdInvoices);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() }),
         queryClient.invalidateQueries({ queryKey: getGetRecentInvoicesQueryKey() }),
@@ -562,6 +573,31 @@ function GenerateRentInvoices({
           </div>
         )}
       </div>
+
+      {generatedInvoices.length > 0 && (
+        <div className="rounded-lg border border-green-200 bg-green-50 p-5">
+          <div className="flex items-center gap-2 text-green-900">
+            <Check className="h-4 w-4" />
+            <h3 className="font-semibold">Facturi generate individual</h3>
+          </div>
+          <p className="mt-1 text-sm text-green-800">
+            Deschide o factură pentru previzualizare, tipărire sau email către client.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {generatedInvoices.map((invoice) => (
+              <Link
+                key={invoice.id}
+                href={`/invoices/${invoice.id}`}
+                className="inline-flex items-center gap-2 rounded-md border border-green-300 bg-white px-3 py-2 text-sm font-medium text-green-900 hover:bg-green-100"
+                data-testid={`link-generated-invoice-${invoice.id}`}
+              >
+                <FileText className="h-4 w-4" />
+                {invoice.invoiceNumber} · {invoice.customerName}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_390px] gap-6">
         <div className="space-y-6">

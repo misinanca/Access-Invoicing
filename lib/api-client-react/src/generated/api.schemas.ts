@@ -213,6 +213,8 @@ export interface InvoiceDetail {
   invoiceNumber: string;
   customerId: number;
   customerName: string;
+  /** @nullable */
+  customerEmail: string | null;
   status: InvoiceDetailStatus;
   issueDate: string;
   dueDate: string;

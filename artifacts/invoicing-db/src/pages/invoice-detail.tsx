@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, Plus, ArrowLeft, Save } from 'lucide-react';
+import { Trash2, Plus, ArrowLeft, Save, Mail, Printer, FileText } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
@@ -130,6 +130,45 @@ export default function InvoiceDetail() {
   const taxAmount = subtotal * (Number(taxRate) / 100);
   const total = subtotal + taxAmount;
 
+  const handleEmailCustomer = () => {
+    if (!invoice?.customerEmail) {
+      toast({
+        title: 'Customer email is missing',
+        description: 'Add an email address to this customer before emailing the invoice.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const lineItemsText = invoice.lineItems
+      .map(
+        (item) =>
+          `- ${item.description} | ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.amount)}`,
+      )
+      .join('\n');
+    const subject = `Factură ${invoice.invoiceNumber}`;
+    const body = [
+      `Bună ziua, ${invoice.customerName},`,
+      '',
+      `Vă transmitem factura ${invoice.invoiceNumber}.`,
+      `Data emiterii: ${formatDate(invoice.issueDate)}`,
+      `Data scadenței: ${formatDate(invoice.dueDate)}`,
+      '',
+      'Detalii:',
+      lineItemsText || '- Fără articole',
+      '',
+      `Total de plată: ${formatCurrency(invoice.total)}`,
+      '',
+      invoice.notes || '',
+      '',
+      'Vă mulțumim.',
+    ]
+      .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
+      .join('\n');
+
+    window.location.href = `mailto:${encodeURIComponent(invoice.customerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  };
+
   if (isLoading) {
     return (
       <>
@@ -162,6 +201,18 @@ export default function InvoiceDetail() {
             <Button variant="outline" onClick={() => setLocation('/invoices')} data-testid="button-back">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
+            </Button>
+            <Button variant="outline" onClick={() => window.print()} data-testid="button-print-invoice">
+              <Printer className="h-4 w-4 mr-2" />
+              Print
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleEmailCustomer}
+              data-testid="button-email-invoice"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              Email customer
             </Button>
             {editMode ? (
               <>
@@ -204,6 +255,123 @@ export default function InvoiceDetail() {
       />
 
       <div className="max-w-5xl mx-auto px-8 py-8 space-y-6">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          <div>
+            <h2 className="text-lg font-semibold">Invoice document</h2>
+            <p className="text-sm text-muted-foreground">
+              Individual preview for {invoice.customerName}
+              {invoice.customerEmail ? ` · ${invoice.customerEmail}` : ' · No email address saved'}
+            </p>
+          </div>
+        </div>
+
+        <article
+          className="bg-white border border-slate-200 rounded-lg p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
+          data-testid="invoice-document-preview"
+        >
+          <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-6">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Invoice document</p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                {invoice.invoiceNumber}
+              </h1>
+            </div>
+            <div className="text-right text-sm">
+              <p className="font-semibold text-slate-950">InvoiceDB</p>
+              <p className="mt-1 text-slate-500">Invoice management</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200 py-6 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Bill to</p>
+              <p className="mt-3 text-base font-semibold text-slate-950">{invoice.customerName}</p>
+              <p className="mt-1 text-slate-600">{invoice.customerEmail || 'Email not provided'}</p>
+            </div>
+            <div className="space-y-2 md:text-right">
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Issue date</span>
+                <span className="font-medium text-slate-950">{formatDate(invoice.issueDate)}</span>
+              </div>
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Due date</span>
+                <span className="font-semibold text-slate-950">{formatDate(invoice.dueDate)}</span>
+              </div>
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Status</span>
+                <span className="font-medium capitalize text-slate-950">{invoice.status}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="py-7">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
+                  <th className="pb-3 font-semibold">Description</th>
+                  <th className="w-20 pb-3 text-right font-semibold">Qty</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Unit price</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoice.lineItems.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-6 text-center text-slate-500">
+                      No line items
+                    </td>
+                  </tr>
+                ) : (
+                  invoice.lineItems.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-200">
+                      <td className="py-4 pr-4 font-medium text-slate-950">{item.description}</td>
+                      <td className="py-4 text-right font-mono text-slate-700">{item.quantity}</td>
+                      <td className="py-4 text-right font-mono text-slate-700">
+                        {formatCurrency(item.unitPrice)}
+                      </td>
+                      <td className="py-4 text-right font-mono font-semibold text-slate-950">
+                        {formatCurrency(item.amount)}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            <div className="ml-auto mt-6 max-w-xs space-y-2 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-mono">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Tax ({taxRate}%)</span>
+                <span className="font-mono">{formatCurrency(taxAmount)}</span>
+              </div>
+              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950">
+                <span>Total</span>
+                <span className="font-mono">{formatCurrency(total)}</span>
+              </div>
+            </div>
+          </div>
+
+          {invoice.notes && (
+            <div className="border-t border-slate-200 pt-5 text-sm text-slate-600 whitespace-pre-line">
+              {invoice.notes}
+            </div>
+          )}
+        </article>
+
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 print:hidden">
+          <span>
+            Email customer opens a prefilled message in your mail application. The invoice is not marked as sent automatically.
+          </span>
+          <Button variant="outline" onClick={handleEmailCustomer} data-testid="button-email-invoice-secondary">
+            <Mail className="h-4 w-4 mr-2" />
+            Email {invoice.customerName}
+          </Button>
+        </div>
+
         {/* Invoice Header */}
         <div className="bg-card border border-card-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
