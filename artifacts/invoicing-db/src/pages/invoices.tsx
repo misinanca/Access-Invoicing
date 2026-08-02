@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import {
   useListInvoices,
+  getInvoice,
+  getInvoiceSettings,
   useCreateInvoice,
   useDeleteInvoice,
   getListInvoicesQueryKey,
@@ -8,8 +10,9 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { downloadInvoiceFile } from '@/lib/invoice-download';
 import { Link } from 'wouter';
-import { Plus, Search, FileText, Trash2 } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -122,6 +125,9 @@ export default function Invoices() {
                     <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Total
                     </th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Download
+                    </th>
                     <th className="w-16 px-6 py-3"></th>
                   </tr>
                 </thead>
@@ -163,6 +169,12 @@ export default function Invoices() {
                         {formatCurrency(invoice.total)}
                       </td>
                       <td className="px-6 py-4 text-right">
+                        <DownloadInvoiceButton
+                          invoiceId={invoice.id}
+                          invoiceNumber={invoice.invoiceNumber}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right">
                         <DeleteInvoiceButton
                           invoiceId={invoice.id}
                           invoiceNumber={invoice.invoiceNumber}
@@ -177,6 +189,53 @@ export default function Invoices() {
         </div>
       </div>
     </>
+  );
+}
+
+function DownloadInvoiceButton({
+  invoiceId,
+  invoiceNumber,
+}: {
+  invoiceId: number;
+  invoiceNumber: string;
+}) {
+  const { toast } = useToast();
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const [invoice, invoiceSettings] = await Promise.all([
+        getInvoice(invoiceId),
+        getInvoiceSettings(),
+      ]);
+      const filename = downloadInvoiceFile(invoice, invoiceSettings);
+      toast({
+        title: 'Factura a fost descărcată',
+        description: filename,
+      });
+    } catch {
+      toast({
+        title: 'Factura nu a putut fi descărcată',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      onClick={handleDownload}
+      disabled={isDownloading}
+      className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
+      aria-label={`Descarcă factura ${invoiceNumber}`}
+      data-testid={`button-download-invoice-${invoiceId}`}
+    >
+      <Download className="h-4 w-4" />
+    </Button>
   );
 }
 
