@@ -13,7 +13,7 @@ import {
 } from '@workspace/api-client-react';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
-import { formatCurrency, formatDate, formatDateInput } from '@/lib/utils';
+import { formatDateInput } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,6 +25,32 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { InvoiceStatus, LineItem } from '@workspace/api-client-react';
+
+function formatInvoiceCurrency(amount: number): string {
+  return new Intl.NumberFormat('ro-RO', {
+    style: 'currency',
+    currency: 'RON',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function formatInvoiceDate(date: string): string {
+  return new Intl.DateTimeFormat('ro-RO', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(date));
+}
+
+function translateInvoiceStatus(status: InvoiceStatus): string {
+  return {
+    draft: 'Schiță',
+    sent: 'Trimisă',
+    paid: 'Plătită',
+    overdue: 'Restantă',
+  }[status];
+}
 
 export default function InvoiceDetail() {
   const params = useParams<{ id: string }>();
@@ -73,7 +99,7 @@ export default function InvoiceDetail() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
-          toast({ title: 'Invoice updated' });
+          toast({ title: 'Factura a fost actualizată' });
           setEditMode(false);
         },
         onError: () => {
@@ -89,7 +115,7 @@ export default function InvoiceDetail() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
-          toast({ title: 'Status updated' });
+          toast({ title: 'Starea facturii a fost actualizată' });
         },
       }
     );
@@ -101,7 +127,7 @@ export default function InvoiceDetail() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
-          toast({ title: 'Invoice deleted' });
+          toast({ title: 'Factura a fost ștearsă' });
           setLocation('/invoices');
         },
       }
@@ -133,8 +159,8 @@ export default function InvoiceDetail() {
   const handleEmailCustomer = () => {
     if (!invoice?.customerEmail) {
       toast({
-        title: 'Customer email is missing',
-        description: 'Add an email address to this customer before emailing the invoice.',
+        title: 'Lipsește adresa de email',
+        description: 'Adaugă o adresă de email clientului înainte de a trimite factura.',
         variant: 'destructive',
       });
       return;
@@ -143,7 +169,7 @@ export default function InvoiceDetail() {
     const lineItemsText = invoice.lineItems
       .map(
         (item) =>
-          `- ${item.description} | ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.amount)}`,
+          `- ${item.description} | ${item.quantity} x ${formatInvoiceCurrency(item.unitPrice)} = ${formatInvoiceCurrency(item.amount)}`,
       )
       .join('\n');
     const subject = `Factură ${invoice.invoiceNumber}`;
@@ -151,13 +177,13 @@ export default function InvoiceDetail() {
       `Bună ziua, ${invoice.customerName},`,
       '',
       `Vă transmitem factura ${invoice.invoiceNumber}.`,
-      `Data emiterii: ${formatDate(invoice.issueDate)}`,
-      `Data scadenței: ${formatDate(invoice.dueDate)}`,
+      `Data emiterii: ${formatInvoiceDate(invoice.issueDate)}`,
+      `Data scadenței: ${formatInvoiceDate(invoice.dueDate)}`,
       '',
       'Detalii:',
       lineItemsText || '- Fără articole',
       '',
-      `Total de plată: ${formatCurrency(invoice.total)}`,
+      `Total de plată: ${formatInvoiceCurrency(invoice.total)}`,
       '',
       invoice.notes || '',
       '',
@@ -172,7 +198,7 @@ export default function InvoiceDetail() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Loading..." />
+        <PageHeader title="Se încarcă..." />
         <div className="max-w-5xl mx-auto px-8 py-8">
           <Skeleton className="h-96 w-full" />
         </div>
@@ -183,9 +209,9 @@ export default function InvoiceDetail() {
   if (!invoice) {
     return (
       <>
-        <PageHeader title="Invoice Not Found" />
+        <PageHeader title="Factura nu a fost găsită" />
         <div className="max-w-5xl mx-auto px-8 py-8">
-          <p>Invoice not found</p>
+          <p>Factura nu a fost găsită.</p>
         </div>
       </>
     );
@@ -195,16 +221,16 @@ export default function InvoiceDetail() {
     <>
       <PageHeader
         title={invoice.invoiceNumber}
-        description={`Customer: ${invoice.customerName}`}
+        description={`Client: ${invoice.customerName}`}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setLocation('/invoices')} data-testid="button-back">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              Înapoi
             </Button>
             <Button variant="outline" onClick={() => window.print()} data-testid="button-print-invoice">
               <Printer className="h-4 w-4 mr-2" />
-              Print
+              Printează
             </Button>
             <Button
               variant="outline"
@@ -212,21 +238,21 @@ export default function InvoiceDetail() {
               data-testid="button-email-invoice"
             >
               <Mail className="h-4 w-4 mr-2" />
-              Email customer
+              Trimite factura
             </Button>
             {editMode ? (
               <>
                 <Button variant="outline" onClick={() => setEditMode(false)}>
-                  Cancel
+                  Anulează
                 </Button>
                 <Button onClick={handleSave} disabled={updateInvoice.isPending} data-testid="button-save">
                   <Save className="h-4 w-4 mr-2" />
-                  Save
+                  Salvează
                 </Button>
               </>
             ) : (
               <Button onClick={() => setEditMode(true)} data-testid="button-edit">
-                Edit
+                Editează
               </Button>
             )}
             <AlertDialog>
@@ -237,15 +263,15 @@ export default function InvoiceDetail() {
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Invoice?</AlertDialogTitle>
+                  <AlertDialogTitle>Ștergi factura?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete the invoice and all its line items.
+                    Această acțiune nu poate fi anulată. Factura și toate pozițiile sale vor fi șterse definitiv.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>Anulează</AlertDialogCancel>
                   <AlertDialogAction onClick={handleDelete} data-testid="button-confirm-delete">
-                    Delete
+                    Șterge
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -258,10 +284,10 @@ export default function InvoiceDetail() {
         <div className="flex items-center gap-2">
           <FileText className="h-5 w-5 text-primary" />
           <div>
-            <h2 className="text-lg font-semibold">Invoice document</h2>
+            <h2 className="text-lg font-semibold">Document factură</h2>
             <p className="text-sm text-muted-foreground">
-              Individual preview for {invoice.customerName}
-              {invoice.customerEmail ? ` · ${invoice.customerEmail}` : ' · No email address saved'}
+              Previzualizare individuală pentru {invoice.customerName}
+              {invoice.customerEmail ? ` · ${invoice.customerEmail}` : ' · Nu există adresă de email'}
             </p>
           </div>
         </div>
@@ -272,35 +298,35 @@ export default function InvoiceDetail() {
         >
           <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Invoice document</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Document factură</p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                 {invoice.invoiceNumber}
               </h1>
             </div>
             <div className="text-right text-sm">
               <p className="font-semibold text-slate-950">InvoiceDB</p>
-              <p className="mt-1 text-slate-500">Invoice management</p>
+              <p className="mt-1 text-slate-500">Administrare facturi</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200 py-6 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Bill to</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Client</p>
               <p className="mt-3 text-base font-semibold text-slate-950">{invoice.customerName}</p>
-              <p className="mt-1 text-slate-600">{invoice.customerEmail || 'Email not provided'}</p>
+              <p className="mt-1 text-slate-600">{invoice.customerEmail || 'Email necompletat'}</p>
             </div>
             <div className="space-y-2 md:text-right">
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Issue date</span>
-                <span className="font-medium text-slate-950">{formatDate(invoice.issueDate)}</span>
+                <span className="text-slate-500">Data emiterii</span>
+                <span className="font-medium text-slate-950">{formatInvoiceDate(invoice.issueDate)}</span>
               </div>
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Due date</span>
-                <span className="font-semibold text-slate-950">{formatDate(invoice.dueDate)}</span>
+                <span className="text-slate-500">Data scadenței</span>
+                <span className="font-semibold text-slate-950">{formatInvoiceDate(invoice.dueDate)}</span>
               </div>
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Status</span>
-                <span className="font-medium capitalize text-slate-950">{invoice.status}</span>
+                <span className="text-slate-500">Stare</span>
+                <span className="font-medium text-slate-950">{translateInvoiceStatus(invoice.status)}</span>
               </div>
             </div>
           </div>
@@ -309,17 +335,17 @@ export default function InvoiceDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
-                  <th className="pb-3 font-semibold">Description</th>
-                  <th className="w-20 pb-3 text-right font-semibold">Qty</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Unit price</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Amount</th>
+                  <th className="pb-3 font-semibold">Descriere</th>
+                  <th className="w-20 pb-3 text-right font-semibold">Cant.</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Valoare</th>
                 </tr>
               </thead>
               <tbody>
                 {invoice.lineItems.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="py-6 text-center text-slate-500">
-                      No line items
+                      Nu există poziții
                     </td>
                   </tr>
                 ) : (
@@ -328,10 +354,10 @@ export default function InvoiceDetail() {
                       <td className="py-4 pr-4 font-medium text-slate-950">{item.description}</td>
                       <td className="py-4 text-right font-mono text-slate-700">{item.quantity}</td>
                       <td className="py-4 text-right font-mono text-slate-700">
-                        {formatCurrency(item.unitPrice)}
+                        {formatInvoiceCurrency(item.unitPrice)}
                       </td>
                       <td className="py-4 text-right font-mono font-semibold text-slate-950">
-                        {formatCurrency(item.amount)}
+                        {formatInvoiceCurrency(item.amount)}
                       </td>
                     </tr>
                   ))
@@ -342,15 +368,15 @@ export default function InvoiceDetail() {
             <div className="ml-auto mt-6 max-w-xs space-y-2 text-sm">
               <div className="flex justify-between text-slate-600">
                 <span>Subtotal</span>
-                <span className="font-mono">{formatCurrency(subtotal)}</span>
+                <span className="font-mono">{formatInvoiceCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Tax ({taxRate}%)</span>
-                <span className="font-mono">{formatCurrency(taxAmount)}</span>
+                <span>TVA ({taxRate}%)</span>
+                <span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span>
               </div>
               <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950">
-                <span>Total</span>
-                <span className="font-mono">{formatCurrency(total)}</span>
+                <span>Total de plată</span>
+                <span className="font-mono">{formatInvoiceCurrency(total)}</span>
               </div>
             </div>
           </div>
@@ -364,11 +390,11 @@ export default function InvoiceDetail() {
 
         <div className="flex items-center justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 print:hidden">
           <span>
-            Email customer opens a prefilled message in your mail application. The invoice is not marked as sent automatically.
+            Butonul deschide un mesaj precompletat în aplicația ta de email. Factura nu este marcată automat ca trimisă.
           </span>
           <Button variant="outline" onClick={handleEmailCustomer} data-testid="button-email-invoice-secondary">
             <Mail className="h-4 w-4 mr-2" />
-            Email {invoice.customerName}
+            Trimite către {invoice.customerName}
           </Button>
         </div>
 
@@ -376,7 +402,7 @@ export default function InvoiceDetail() {
         <div className="bg-card border border-card-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <Label>Status</Label>
+              <Label>Stare</Label>
               <Select
                 value={invoice.status}
                 onValueChange={(val) => handleStatusChange(val as InvoiceStatus)}
@@ -386,16 +412,16 @@ export default function InvoiceDetail() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="draft">Schiță</SelectItem>
+                  <SelectItem value="sent">Trimisă</SelectItem>
+                  <SelectItem value="paid">Plătită</SelectItem>
+                  <SelectItem value="overdue">Restantă</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div>
-              <Label htmlFor="issueDate">Issue Date</Label>
+              <Label htmlFor="issueDate">Data emiterii</Label>
               <Input
                 id="issueDate"
                 type="date"
@@ -408,7 +434,7 @@ export default function InvoiceDetail() {
             </div>
 
             <div>
-              <Label htmlFor="dueDate">Due Date</Label>
+              <Label htmlFor="dueDate">Data scadenței</Label>
               <Input
                 id="dueDate"
                 type="date"
@@ -421,7 +447,7 @@ export default function InvoiceDetail() {
             </div>
 
             <div>
-              <Label htmlFor="taxRate">Tax Rate (%)</Label>
+              <Label htmlFor="taxRate">Cota TVA (%)</Label>
               <Input
                 id="taxRate"
                 type="number"
@@ -435,7 +461,7 @@ export default function InvoiceDetail() {
             </div>
 
             <div className="md:col-span-2">
-              <Label htmlFor="notes">Notes</Label>
+              <Label htmlFor="notes">Observații</Label>
               <Textarea
                 id="notes"
                 value={notes}
@@ -452,10 +478,10 @@ export default function InvoiceDetail() {
         {/* Line Items */}
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-card-border flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Line Items</h2>
+            <h2 className="text-lg font-semibold">Poziții factură</h2>
             <Button onClick={handleAddLineItem} size="sm" disabled={createLineItem.isPending} data-testid="button-add-line-item">
               <Plus className="h-4 w-4 mr-2" />
-              Add Item
+              Adaugă poziție
             </Button>
           </div>
 
@@ -464,16 +490,16 @@ export default function InvoiceDetail() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Description
+                    Descriere
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Qty
+                    Cant.
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Unit Price
+                    Preț unitar
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Amount
+                    Valoare
                   </th>
                   <th className="w-12"></th>
                 </tr>
@@ -482,7 +508,7 @@ export default function InvoiceDetail() {
                 {invoice.lineItems.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-8 text-center text-muted-foreground">
-                      No line items yet
+                      Nu există poziții
                     </td>
                   </tr>
                 ) : (
@@ -504,15 +530,15 @@ export default function InvoiceDetail() {
             <div className="max-w-xs ml-auto space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-mono font-semibold">{formatCurrency(subtotal)}</span>
+                <span className="font-mono font-semibold">{formatInvoiceCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax ({taxRate}%):</span>
-                <span className="font-mono font-semibold">{formatCurrency(taxAmount)}</span>
+                <span className="text-muted-foreground">TVA ({taxRate}%):</span>
+                <span className="font-mono font-semibold">{formatInvoiceCurrency(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-lg border-t border-border pt-2">
-                <span className="font-semibold">Total:</span>
-                <span className="font-mono font-bold">{formatCurrency(total)}</span>
+                <span className="font-semibold">Total de plată:</span>
+                <span className="font-mono font-bold">{formatInvoiceCurrency(total)}</span>
               </div>
             </div>
           </div>
@@ -555,7 +581,7 @@ function LineItemRow({
         onSuccess: () => {
           onUpdate();
           setEditMode(false);
-          toast({ title: 'Line item updated' });
+          toast({ title: 'Poziția a fost actualizată' });
         },
       }
     );
@@ -567,7 +593,7 @@ function LineItemRow({
       {
         onSuccess: () => {
           onUpdate();
-          toast({ title: 'Line item deleted' });
+          toast({ title: 'Poziția a fost ștearsă' });
         },
       }
     );
@@ -604,15 +630,15 @@ function LineItemRow({
           />
         </td>
         <td className="px-6 py-3 text-right font-mono">
-          {formatCurrency(Number(quantity) * Number(unitPrice))}
+          {formatInvoiceCurrency(Number(quantity) * Number(unitPrice))}
         </td>
         <td className="px-6 py-3">
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={handleSave} data-testid={`button-save-${item.id}`}>
-              Save
+              Salvează
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setEditMode(false)}>
-              Cancel
+              Anulează
             </Button>
           </div>
         </td>
@@ -624,8 +650,8 @@ function LineItemRow({
     <tr className="hover:bg-muted/30" data-testid={`row-line-item-${item.id}`}>
       <td className="px-6 py-4">{item.description}</td>
       <td className="px-6 py-4 text-right font-mono">{item.quantity}</td>
-      <td className="px-6 py-4 text-right font-mono">{formatCurrency(item.unitPrice)}</td>
-      <td className="px-6 py-4 text-right font-mono font-semibold">{formatCurrency(item.amount)}</td>
+      <td className="px-6 py-4 text-right font-mono">{formatInvoiceCurrency(item.unitPrice)}</td>
+      <td className="px-6 py-4 text-right font-mono font-semibold">{formatInvoiceCurrency(item.amount)}</td>
       <td className="px-6 py-4">
         <div className="flex gap-1">
           <Button
@@ -634,7 +660,7 @@ function LineItemRow({
             onClick={() => setEditMode(true)}
             data-testid={`button-edit-line-item-${item.id}`}
           >
-            Edit
+            Editează
           </Button>
           <Button
             size="sm"
