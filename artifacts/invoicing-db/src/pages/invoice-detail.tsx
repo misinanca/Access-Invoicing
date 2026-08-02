@@ -71,6 +71,8 @@ export default function InvoiceDetail() {
   const deleteLineItem = useDeleteLineItem();
 
   const [editMode, setEditMode] = useState(false);
+  const [invoicePrefix, setInvoicePrefix] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [taxRate, setTaxRate] = useState('');
@@ -78,6 +80,11 @@ export default function InvoiceDetail() {
 
   useEffect(() => {
     if (invoice && !editMode) {
+      const separatorIndex = invoice.invoiceNumber.lastIndexOf('-');
+      setInvoicePrefix(separatorIndex > 0 ? invoice.invoiceNumber.slice(0, separatorIndex) : '');
+      setInvoiceNumber(
+        separatorIndex > 0 ? invoice.invoiceNumber.slice(separatorIndex + 1) : invoice.invoiceNumber,
+      );
       setIssueDate(formatDateInput(invoice.issueDate));
       setDueDate(formatDateInput(invoice.dueDate));
       setTaxRate(String(invoice.taxRate));
@@ -90,6 +97,8 @@ export default function InvoiceDetail() {
       {
         id: invoiceId,
         data: {
+          invoicePrefix,
+          invoiceNumber,
           issueDate,
           dueDate,
           taxRate: Number(taxRate),
@@ -99,6 +108,7 @@ export default function InvoiceDetail() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
           toast({ title: 'Factura a fost actualizată' });
           setEditMode(false);
         },
@@ -401,6 +411,32 @@ export default function InvoiceDetail() {
         {/* Invoice Header */}
         <div className="bg-card border border-card-border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <Label htmlFor="invoicePrefix">Prefix factură</Label>
+              <Input
+                id="invoicePrefix"
+                value={invoicePrefix}
+                onChange={(e) => setInvoicePrefix(e.target.value)}
+                disabled={!editMode}
+                className="mt-2"
+                placeholder="INV"
+                data-testid="input-invoice-prefix"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="invoiceNumber">Număr factură</Label>
+              <Input
+                id="invoiceNumber"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                disabled={!editMode}
+                className="mt-2"
+                placeholder="0001"
+                data-testid="input-invoice-number"
+              />
+            </div>
+
             <div>
               <Label>Stare</Label>
               <Select

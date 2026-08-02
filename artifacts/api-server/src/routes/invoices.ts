@@ -105,6 +105,18 @@ async function nextInvoiceNumber(): Promise<string> {
   return `INV-${String(num).padStart(4, "0")}`;
 }
 
+function splitInvoiceNumber(invoiceNumber: string): { prefix: string; number: string } {
+  const separatorIndex = invoiceNumber.lastIndexOf("-");
+  if (separatorIndex <= 0 || separatorIndex === invoiceNumber.length - 1) {
+    return { prefix: "", number: invoiceNumber };
+  }
+
+  return {
+    prefix: invoiceNumber.slice(0, separatorIndex),
+    number: invoiceNumber.slice(separatorIndex + 1),
+  };
+}
+
 // ── Invoice Summary / Dashboard ──────────────────────────────────────────────
 
 router.get("/invoices/summary", async (_req, res): Promise<void> => {
@@ -323,6 +335,28 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   }
 
   const updateData: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.invoicePrefix !== undefined || parsed.data.invoiceNumber !== undefined) {
+    const [current] = await db
+      .select({ invoiceNumber: invoicesTable.invoiceNumber })
+      .from(invoicesTable)
+      .where(eq(invoicesTable.id, params.data.id));
+
+    if (!current) {
+      res.status(404).json({ error: "Invoice not found" });
+      return;
+    }
+
+    const currentParts = splitInvoiceNumber(current.invoiceNumber);
+    const prefix = (parsed.data.invoicePrefix ?? currentParts.prefix).trim();
+    const number = (parsed.data.invoiceNumber ?? currentParts.number).trim();
+
+    if (!prefix || !number) {
+      res.status(400).json({ error: "Invoice prefix and number are required" });
+      return;
+    }
+
+    updateData.invoiceNumber = `${prefix}-${number}`;
+  }
   if (parsed.data.customerId !== undefined) updateData.customerId = parsed.data.customerId;
   if (parsed.data.issueDate !== undefined) updateData.issueDate = parsed.data.issueDate;
   if (parsed.data.dueDate !== undefined) updateData.dueDate = parsed.data.dueDate;

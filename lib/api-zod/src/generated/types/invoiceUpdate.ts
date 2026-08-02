@@ -7,6 +7,10 @@
  */
 
 export interface InvoiceUpdate {
+  /** @minLength 1 */
+  invoicePrefix?: string;
+  /** @minLength 1 */
+  invoiceNumber?: string;
   customerId?: number;
   issueDate?: string;
   dueDate?: string;

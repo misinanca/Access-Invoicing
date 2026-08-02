@@ -1,0 +1,1 @@
+- [Generated Zod compatibility](generated-zod-compatibility.md) — Orval may emit Zod 4-only helpers; keep generated validators compatible with the workspace's Zod 3 runtime.

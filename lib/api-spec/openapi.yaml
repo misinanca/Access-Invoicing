@@ -797,6 +797,12 @@ components:
     InvoiceUpdate:
       type: object
       properties:
+        invoicePrefix:
+          type: string
+          minLength: 1
+        invoiceNumber:
+          type: string
+          minLength: 1
         customerId:
           type: integer
         issueDate:

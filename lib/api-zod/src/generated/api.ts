@@ -422,12 +422,16 @@ export const UpdateInvoiceParams = zod.object({
   "id": zod.coerce.number().int()
 })
 
+
+
 export const updateInvoiceBodyTaxRateMin = 0;
 export const updateInvoiceBodyTaxRateMax = 100;
 
 
 
 export const UpdateInvoiceBody = zod.object({
+  "invoicePrefix": zod.string().min(1).optional(),
+  "invoiceNumber": zod.string().min(1).optional(),
   "customerId": zod.number().int().optional(),
   "issueDate": zod.string().optional(),
   "dueDate": zod.string().optional(),
