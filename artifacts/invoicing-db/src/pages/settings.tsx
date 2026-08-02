@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'wouter';
 import {
   getGetInvoiceSettingsQueryKey,
@@ -7,7 +7,7 @@ import {
   type InvoiceCustomField,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ImagePlus, Plus, Save, Settings2, Trash2 } from 'lucide-react';
+import { ImagePlus, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +30,9 @@ export default function Settings() {
   const [issuerAddress, setIssuerAddress] = useState('');
   const [footerText, setFooterText] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [isReadingLogo, setIsReadingLogo] = useState(false);
   const [customFields, setCustomFields] = useState<InvoiceCustomField[]>(defaultFields);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!settings) return;
@@ -49,6 +51,58 @@ export default function Settings() {
         fieldIndex === index ? { ...field, [key]: value } : field,
       ),
     );
+  };
+
+  const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+    const maxFileSize = 2 * 1024 * 1024;
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: 'Format de logo neacceptat',
+        description: 'Încarcă un fișier PNG, JPG, WEBP sau SVG.',
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
+    if (file.size > maxFileSize) {
+      toast({
+        title: 'Logo-ul este prea mare',
+        description: 'Fișierul trebuie să aibă maximum 2 MB.',
+        variant: 'destructive',
+      });
+      event.target.value = '';
+      return;
+    }
+
+    setIsReadingLogo(true);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setLogoUrl(reader.result);
+        toast({ title: 'Logo încărcat', description: 'Salvează setările pentru a-l păstra.' });
+      }
+      setIsReadingLogo(false);
+    };
+    reader.onerror = () => {
+      setIsReadingLogo(false);
+      toast({
+        title: 'Logo-ul nu a putut fi încărcat',
+        description: 'Încearcă din nou cu un alt fișier.',
+        variant: 'destructive',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const clearLogo = () => {
+    setLogoUrl('');
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
   };
 
   const handleSave = (event: React.FormEvent) => {
@@ -173,11 +227,42 @@ export default function Settings() {
                 />
               </div>
               <div className="md:col-span-2">
-                <Label htmlFor="settings-logo-url">Logo companie (URL imagine)</Label>
+                <Label htmlFor="settings-logo-file">Logo companie</Label>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <Input
+                    ref={logoInputRef}
+                    id="settings-logo-file"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleLogoUpload}
+                    className="max-w-md"
+                    data-testid="input-settings-logo-file"
+                  />
+                  {logoUrl && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={clearLogo}
+                      disabled={isReadingLogo}
+                      data-testid="button-clear-settings-logo"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Elimină logo-ul
+                    </Button>
+                  )}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Încarcă PNG, JPG, WEBP sau SVG, maximum 2 MB. Logo-ul este păstrat împreună cu setările.
+                </p>
+                <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
+                  <div className="h-px flex-1 bg-border" />
+                  <span>sau folosește un URL public</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
                 <Input
                   id="settings-logo-url"
-                  type="url"
-                  value={logoUrl}
+                  type="text"
+                  value={logoUrl.startsWith('data:image/') ? '' : logoUrl}
                   onChange={(event) => setLogoUrl(event.target.value)}
                   className="mt-2"
                   placeholder="https://exemplu.ro/logo.png"
@@ -193,7 +278,7 @@ export default function Settings() {
                   </div>
                 )}
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Folosește un URL public pentru imagine. Logo-ul apare în previzualizare și la tipărire.
+                  Logo-ul apare în previzualizare, la tipărire și în PDF-urile descărcate.
                 </p>
               </div>
               <div className="md:col-span-2">
@@ -279,9 +364,17 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground">
               Setările se folosesc și în <Link href="/rent" className="text-primary hover:underline">generarea facturilor de chirie</Link>.
             </p>
-            <Button type="submit" disabled={updateSettings.isPending} data-testid="button-save-settings">
+              <Button
+                type="submit"
+                disabled={updateSettings.isPending || isReadingLogo}
+                data-testid="button-save-settings"
+              >
               <Save className="h-4 w-4 mr-2" />
-              {updateSettings.isPending ? 'Se salvează...' : 'Salvează setările'}
+                {isReadingLogo
+                  ? 'Se pregătește logo-ul...'
+                  : updateSettings.isPending
+                    ? 'Se salvează...'
+                    : 'Salvează setările'}
             </Button>
           </div>
         </form>
