@@ -126,7 +126,7 @@ export default function Invoices() {
                       Total
                     </th>
                     <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      Download
+                      PDF
                     </th>
                     <th className="w-16 px-6 py-3"></th>
                   </tr>
@@ -209,7 +209,7 @@ function DownloadInvoiceButton({
         getInvoice(invoiceId),
         getInvoiceSettings(),
       ]);
-      const filename = downloadInvoiceFile(invoice, invoiceSettings);
+      const filename = await downloadInvoiceFile(invoice, invoiceSettings);
       toast({
         title: 'Factura a fost descărcată',
         description: filename,

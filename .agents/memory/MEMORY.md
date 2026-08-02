@@ -1,2 +1,3 @@
 - [Generated Zod compatibility](generated-zod-compatibility.md) — Orval may emit Zod 4-only helpers; keep generated validators compatible with the workspace's Zod 3 runtime.
 - [Invoice settings architecture](invoice-settings-architecture.md) — Persist shared invoice branding and custom fields in the singleton settings record, not browser-only state.
+- [Invoice PDF export](invoice-pdf-export.md) — Render the shared branded invoice document to A4 PDF client-side with html2canvas and jsPDF.

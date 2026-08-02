@@ -1,4 +1,6 @@
 import type { InvoiceDetail, InvoiceSettings } from '@workspace/api-client-react';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 function escapeHtml(value: string): string {
   return value
@@ -46,16 +48,16 @@ function translateInvoiceStatus(status: InvoiceDetail['status']): string {
   }[status];
 }
 
-export function downloadInvoiceFile(
+export async function downloadInvoiceFile(
   invoice: InvoiceDetail,
   invoiceSettings?: InvoiceSettings | null,
-): string {
+): Promise<string> {
   const description =
     invoice.lineItems
       .map((item) => item.description.trim())
       .filter(Boolean)
       .join(' - ') || 'factura';
-  const filename = `${safeDownloadPart(invoice.invoiceNumber)} - ${safeDownloadPart(description)}.html`;
+  const filename = `${safeDownloadPart(invoice.invoiceNumber)} - ${safeDownloadPart(description)}.pdf`;
   const customFields = invoiceSettings?.customFields ?? [];
   const customFieldsHtml = customFields.length
     ? `
@@ -173,14 +175,76 @@ export function downloadInvoiceFile(
     </main>
   </body>
 </html>`;
-  const blob = new Blob([documentHtml], { type: 'text/html;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-  return filename;
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('title', 'Generare PDF factură');
+  iframe.style.position = 'fixed';
+  iframe.style.left = '-10000px';
+  iframe.style.top = '0';
+  iframe.style.width = '900px';
+  iframe.style.height = '1200px';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  try {
+    const iframeDocument = iframe.contentDocument;
+    if (!iframeDocument) {
+      throw new Error('Nu s-a putut pregăti documentul PDF');
+    }
+
+    iframeDocument.open();
+    iframeDocument.write(documentHtml);
+    iframeDocument.close();
+    await new Promise<void>((resolve) => {
+      if (iframeDocument.readyState === 'complete') {
+        resolve();
+        return;
+      }
+      iframe.addEventListener('load', () => resolve(), { once: true });
+    });
+
+    await Promise.all(
+      Array.from(iframeDocument.images)
+        .filter((image) => !image.complete)
+        .map(
+          (image) =>
+            new Promise<void>((resolve) => {
+              image.addEventListener('load', () => resolve(), { once: true });
+              image.addEventListener('error', () => resolve(), { once: true });
+            }),
+        ),
+    );
+
+    const documentElement = iframeDocument.querySelector<HTMLElement>('.document');
+    if (!documentElement) {
+      throw new Error('Documentul PDF nu a putut fi randat');
+    }
+
+    const canvas = await html2canvas(documentElement, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imageHeight = (canvas.height * pageWidth) / canvas.width;
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
+    let remainingHeight = imageHeight;
+    let offsetY = 0;
+
+    while (remainingHeight > 0) {
+      if (offsetY !== 0) {
+        pdf.addPage();
+      }
+      pdf.addImage(imageData, 'JPEG', 0, offsetY, pageWidth, imageHeight);
+      remainingHeight -= pageHeight;
+      offsetY -= pageHeight;
+    }
+
+    pdf.save(filename);
+    return filename;
+  } finally {
+    iframe.remove();
+  }
 }
