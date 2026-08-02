@@ -6,6 +6,7 @@ import {
   getListInvoicesQueryKey,
   useCreateInvoice,
   useCreateLineItem,
+  useGetInvoiceSettings,
   useListCustomers,
   useUpdateCustomer,
 } from '@workspace/api-client-react';
@@ -53,20 +54,20 @@ export default function Rent() {
   const [invoiceDate, setInvoiceDate] = useState(getToday);
   const [dueDate, setDueDate] = useState(getDefaultDueDate);
   const [rentMonth, setRentMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [layout, setLayout] = useState<InvoiceLayout>(() => {
-    try {
-      return {
-        ...defaultLayout,
-        ...JSON.parse(window.localStorage.getItem('rent-invoice-layout') || '{}'),
-      };
-    } catch {
-      return defaultLayout;
-    }
-  });
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const { data: invoiceSettings } = useGetInvoiceSettings();
   const { data: customers, isLoading } = useListCustomers({
     search: search || undefined,
   });
+  const layout: InvoiceLayout = {
+    invoicePrefix: invoiceSettings?.invoicePrefix ?? defaultLayout.invoicePrefix,
+    title: invoiceSettings?.invoiceTitle ?? defaultLayout.title,
+    issuerName: invoiceSettings?.issuerName ?? defaultLayout.issuerName,
+    issuerAddress: invoiceSettings?.issuerAddress ?? defaultLayout.issuerAddress,
+    footer: invoiceSettings?.footerText ?? defaultLayout.footer,
+    logoUrl: invoiceSettings?.logoUrl ?? null,
+    customFields: invoiceSettings?.customFields ?? [],
+  };
   const numericRate = Number(rate) > 0 ? Number(rate) : DEFAULT_RATE;
 
   const totalEur = useMemo(
@@ -83,12 +84,6 @@ export default function Rent() {
     if (Number(value) > 0) {
       window.localStorage.setItem('eur-ron-rate', value);
     }
-  };
-
-  const updateLayout = (key: keyof InvoiceLayout, value: string) => {
-    const next = { ...layout, [key]: value };
-    setLayout(next);
-    window.localStorage.setItem('rent-invoice-layout', JSON.stringify(next));
   };
 
   return (
@@ -254,7 +249,6 @@ export default function Rent() {
               rentMonth={rentMonth}
               setRentMonth={setRentMonth}
               layout={layout}
-              updateLayout={updateLayout}
               selectedIds={selectedIds}
               setSelectedIds={setSelectedIds}
             />
@@ -367,17 +361,23 @@ function RentRow({
 }
 
 type InvoiceLayout = {
+  invoicePrefix: string;
   issuerName: string;
   issuerAddress: string;
   title: string;
   footer: string;
+  logoUrl: string | null;
+  customFields: Array<{ label: string; text: string }>;
 };
 
 const defaultLayout: InvoiceLayout = {
+  invoicePrefix: 'INV',
   issuerName: 'Administrare imobile',
   issuerAddress: 'Adresă emitent',
   title: 'FACTURĂ DE CHIRIE',
   footer: 'Vă mulțumim pentru plata la termen.',
+  logoUrl: null,
+  customFields: [],
 };
 
 function getDefaultDueDate() {
@@ -424,7 +424,6 @@ function GenerateRentInvoices({
   rentMonth,
   setRentMonth,
   layout,
-  updateLayout,
   selectedIds,
   setSelectedIds,
 }: {
@@ -443,7 +442,6 @@ function GenerateRentInvoices({
   rentMonth: string;
   setRentMonth: (value: string) => void;
   layout: InvoiceLayout;
-  updateLayout: (key: keyof InvoiceLayout, value: string) => void;
   selectedIds: number[];
   setSelectedIds: Dispatch<SetStateAction<number[]>>;
 }) {
@@ -505,6 +503,7 @@ function GenerateRentInvoices({
           `Adresă emitent: ${layout.issuerAddress}`,
           `Client: ${customer.name}`,
           `Monedă: RON (calculat la cursul 1 EUR = ${rate.toFixed(4)} RON)`,
+          ...layout.customFields.map((field) => `${field.label}: ${field.text}`),
           layout.footer,
         ].join('\n');
 
@@ -731,49 +730,24 @@ function GenerateRentInvoices({
               <Settings2 className="h-5 w-5 text-primary" />
               <h3 className="font-semibold">Personalizează aspectul</h3>
             </div>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="layout-title">Titlu factură</Label>
-                <Input
-                  id="layout-title"
-                  value={layout.title}
-                  onChange={(event) => updateLayout('title', event.target.value)}
-                  className="mt-2"
-                  data-testid="input-layout-title"
-                />
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Aspectul, logo-ul și câmpurile suplimentare sunt gestionate centralizat în pagina de setări.
+              </p>
+              <div className="rounded-md border border-border bg-muted/20 p-3">
+                <p className="font-medium">{layout.title || 'Factură'}</p>
+                <p className="mt-1 text-muted-foreground">{layout.issuerName || 'Emitent necompletat'}</p>
+                <p className="mt-1 text-muted-foreground">
+                  Prefix: <span className="font-mono text-foreground">{layout.invoicePrefix}</span>
+                  {layout.logoUrl ? ' · Logo configurat' : ''}
+                </p>
+                <p className="mt-1 text-muted-foreground">
+                  Câmpuri suplimentare: {layout.customFields.length}
+                </p>
               </div>
-              <div>
-                <Label htmlFor="layout-issuer">Nume emitent</Label>
-                <Input
-                  id="layout-issuer"
-                  value={layout.issuerName}
-                  onChange={(event) => updateLayout('issuerName', event.target.value)}
-                  className="mt-2"
-                  data-testid="input-layout-issuer"
-                />
-              </div>
-              <div>
-                <Label htmlFor="layout-address">Adresă emitent</Label>
-                <Textarea
-                  id="layout-address"
-                  value={layout.issuerAddress}
-                  onChange={(event) => updateLayout('issuerAddress', event.target.value)}
-                  className="mt-2"
-                  rows={2}
-                  data-testid="input-layout-address"
-                />
-              </div>
-              <div>
-                <Label htmlFor="layout-footer">Text de subsol</Label>
-                <Textarea
-                  id="layout-footer"
-                  value={layout.footer}
-                  onChange={(event) => updateLayout('footer', event.target.value)}
-                  className="mt-2"
-                  rows={2}
-                  data-testid="input-layout-footer"
-                />
-              </div>
+              <Link href="/settings" className="inline-flex text-sm font-medium text-primary hover:underline">
+                Deschide setările facturii →
+              </Link>
             </div>
           </div>
 
@@ -864,6 +838,13 @@ function RentInvoiceDocumentPreview({
         >
           <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-7">
             <div className="max-w-[55%]">
+              {layout.logoUrl && (
+                <img
+                  src={layout.logoUrl}
+                  alt="Logo companie"
+                  className="mb-4 max-h-14 max-w-[190px] object-contain object-left"
+                />
+              )}
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                 Document fiscal
               </p>
@@ -899,6 +880,17 @@ function RentInvoiceDocumentPreview({
               </div>
             </div>
           </div>
+
+          {layout.customFields.length > 0 && (
+            <div className="grid grid-cols-2 gap-4 border-b border-slate-200 py-5 text-sm md:grid-cols-3">
+              {layout.customFields.map((field) => (
+                <div key={`${field.label}-${field.text}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{field.label}</p>
+                  <p className="mt-1 whitespace-pre-line text-slate-950">{field.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="py-8">
             <table className="w-full text-sm">

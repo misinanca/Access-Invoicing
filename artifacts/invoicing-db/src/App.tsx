@@ -11,6 +11,7 @@ import Customers from '@/pages/customers';
 import CustomerDetail from '@/pages/customer-detail';
 import Products from '@/pages/products';
 import Rent from '@/pages/rent';
+import Settings from '@/pages/settings';
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ function Router() {
         <Route path="/customers/:id" component={CustomerDetail} />
         <Route path="/products" component={Products} />
         <Route path="/rent" component={Rent} />
+        <Route path="/settings" component={Settings} />
         <Route component={NotFound} />
       </Switch>
     </AppShell>

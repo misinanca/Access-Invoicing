@@ -5,7 +5,11 @@
  * Invoicing Database API
  * OpenAPI spec version: 0.1.0
  */
-import * as zod from 'zod';
+import * as zodImport from 'zod';
+
+const zod = Object.assign({}, zodImport, {
+  int: () => zodImport.number().int(),
+});
 
 
 /**
@@ -18,6 +22,58 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Get invoice settings
+ */
+export const GetInvoiceSettingsResponse = zod.object({
+  "invoicePrefix": zod.string(),
+  "invoiceTitle": zod.string(),
+  "issuerName": zod.string(),
+  "issuerAddress": zod.string(),
+  "footerText": zod.string(),
+  "logoUrl": zod.string().nullable(),
+  "customFields": zod.array(zod.object({
+  "label": zod.string(),
+  "text": zod.string()
+})),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update invoice settings
+ */
+
+
+
+export const UpdateInvoiceSettingsBody = zod.object({
+  "invoicePrefix": zod.string().min(1).optional(),
+  "invoiceTitle": zod.string().optional(),
+  "issuerName": zod.string().optional(),
+  "issuerAddress": zod.string().optional(),
+  "footerText": zod.string().optional(),
+  "logoUrl": zod.string().nullish(),
+  "customFields": zod.array(zod.object({
+  "label": zod.string(),
+  "text": zod.string()
+})).optional()
+})
+
+export const UpdateInvoiceSettingsResponse = zod.object({
+  "invoicePrefix": zod.string(),
+  "invoiceTitle": zod.string(),
+  "issuerName": zod.string(),
+  "issuerAddress": zod.string(),
+  "footerText": zod.string(),
+  "logoUrl": zod.string().nullable(),
+  "customFields": zod.array(zod.object({
+  "label": zod.string(),
+  "text": zod.string()
+})),
+  "updatedAt": zod.string()
+})
+
+
+/**
  * @summary List all customers
  */
 export const ListCustomersQueryParams = zod.object({
@@ -25,7 +81,7 @@ export const ListCustomersQueryParams = zod.object({
 })
 
 export const ListCustomersResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -65,7 +121,7 @@ export const CreateCustomerBody = zod.object({
 })
 
 export const CreateCustomerResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -89,7 +145,7 @@ export const GetCustomerParams = zod.object({
 })
 
 export const GetCustomerResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -132,7 +188,7 @@ export const UpdateCustomerBody = zod.object({
 })
 
 export const UpdateCustomerResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -166,9 +222,9 @@ export const GetCustomerInvoicesParams = zod.object({
 })
 
 export const GetCustomerInvoicesResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "customerName": zod.string(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
@@ -192,7 +248,7 @@ export const ListProductsQueryParams = zod.object({
 })
 
 export const ListProductsResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "unitPrice": zod.number(),
@@ -218,7 +274,7 @@ export const CreateProductBody = zod.object({
 })
 
 export const CreateProductResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "unitPrice": zod.number(),
@@ -235,7 +291,7 @@ export const GetProductParams = zod.object({
 })
 
 export const GetProductResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "unitPrice": zod.number(),
@@ -264,7 +320,7 @@ export const UpdateProductBody = zod.object({
 })
 
 export const UpdateProductResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "name": zod.string(),
   "description": zod.string().nullish(),
   "unitPrice": zod.number(),
@@ -293,9 +349,9 @@ export const ListInvoicesQueryParams = zod.object({
 })
 
 export const ListInvoicesResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "customerName": zod.string(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
@@ -320,7 +376,7 @@ export const createInvoiceBodyTaxRateMax = 100;
 
 
 export const CreateInvoiceBody = zod.object({
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
   "notes": zod.string().optional(),
@@ -329,9 +385,9 @@ export const CreateInvoiceBody = zod.object({
 })
 
 export const CreateInvoiceResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
@@ -353,8 +409,8 @@ export const GetInvoiceSummaryResponse = zod.object({
   "totalPaid": zod.number(),
   "totalOutstanding": zod.number(),
   "totalOverdue": zod.number(),
-  "invoiceCount": zod.number().int(),
-  "customerCount": zod.number().int()
+  "invoiceCount": zod.int(),
+  "customerCount": zod.int()
 })
 
 
@@ -362,9 +418,9 @@ export const GetInvoiceSummaryResponse = zod.object({
  * @summary Get recent invoices with customer name
  */
 export const GetRecentInvoicesResponseItem = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "customerName": zod.string(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
@@ -388,9 +444,9 @@ export const GetInvoiceParams = zod.object({
 })
 
 export const GetInvoiceResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "customerName": zod.string(),
   "customerEmail": zod.string().nullable(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
@@ -402,9 +458,9 @@ export const GetInvoiceResponse = zod.object({
   "taxAmount": zod.number(),
   "total": zod.number(),
   "lineItems": zod.array(zod.object({
-  "id": zod.number().int(),
-  "invoiceId": zod.number().int(),
-  "productId": zod.number().int().nullish(),
+  "id": zod.int(),
+  "invoiceId": zod.int(),
+  "productId": zod.int().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
@@ -432,7 +488,7 @@ export const updateInvoiceBodyTaxRateMax = 100;
 export const UpdateInvoiceBody = zod.object({
   "invoicePrefix": zod.string().min(1).optional(),
   "invoiceNumber": zod.string().min(1).optional(),
-  "customerId": zod.number().int().optional(),
+  "customerId": zod.int().optional(),
   "issueDate": zod.string().optional(),
   "dueDate": zod.string().optional(),
   "notes": zod.string().optional(),
@@ -440,9 +496,9 @@ export const UpdateInvoiceBody = zod.object({
 })
 
 export const UpdateInvoiceResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
@@ -478,9 +534,9 @@ export const UpdateInvoiceStatusBody = zod.object({
 })
 
 export const UpdateInvoiceStatusResponse = zod.object({
-  "id": zod.number().int(),
+  "id": zod.int(),
   "invoiceNumber": zod.string(),
-  "customerId": zod.number().int(),
+  "customerId": zod.int(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
@@ -502,9 +558,9 @@ export const ListLineItemsParams = zod.object({
 })
 
 export const ListLineItemsResponseItem = zod.object({
-  "id": zod.number().int(),
-  "invoiceId": zod.number().int(),
-  "productId": zod.number().int().nullish(),
+  "id": zod.int(),
+  "invoiceId": zod.int(),
+  "productId": zod.int().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
@@ -528,16 +584,16 @@ export const createLineItemBodyUnitPriceMin = 0;
 
 
 export const CreateLineItemBody = zod.object({
-  "productId": zod.number().int().optional(),
+  "productId": zod.int().optional(),
   "description": zod.string().min(1),
   "quantity": zod.number().min(createLineItemBodyQuantityMin),
   "unitPrice": zod.number().min(createLineItemBodyUnitPriceMin)
 })
 
 export const CreateLineItemResponse = zod.object({
-  "id": zod.number().int(),
-  "invoiceId": zod.number().int(),
-  "productId": zod.number().int().nullish(),
+  "id": zod.int(),
+  "invoiceId": zod.int(),
+  "productId": zod.int().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),
@@ -561,16 +617,16 @@ export const updateLineItemBodyUnitPriceMin = 0;
 
 
 export const UpdateLineItemBody = zod.object({
-  "productId": zod.number().int().optional(),
+  "productId": zod.int().optional(),
   "description": zod.string().min(1).optional(),
   "quantity": zod.number().min(updateLineItemBodyQuantityMin).optional(),
   "unitPrice": zod.number().min(updateLineItemBodyUnitPriceMin).optional()
 })
 
 export const UpdateLineItemResponse = zod.object({
-  "id": zod.number().int(),
-  "invoiceId": zod.number().int(),
-  "productId": zod.number().int().nullish(),
+  "id": zod.int(),
+  "invoiceId": zod.int(),
+  "productId": zod.int().nullish(),
   "description": zod.string(),
   "quantity": zod.number(),
   "unitPrice": zod.number(),

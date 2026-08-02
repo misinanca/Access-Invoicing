@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, ilike, and, sql } from "drizzle-orm";
-import { db, invoicesTable, customersTable, lineItemsTable } from "@workspace/db";
+import {
+  db,
+  invoicesTable,
+  customersTable,
+  lineItemsTable,
+  invoiceSettingsTable,
+} from "@workspace/db";
 import {
   ListInvoicesQueryParams,
   ListInvoicesResponse,
@@ -98,11 +104,17 @@ async function nextInvoiceNumber(): Promise<string> {
     .orderBy(desc(invoicesTable.id))
     .limit(1);
 
-  if (!last) return "INV-0001";
+  const [settings] = await db
+    .select({ invoicePrefix: invoiceSettingsTable.invoicePrefix })
+    .from(invoiceSettingsTable)
+    .where(eq(invoiceSettingsTable.id, 1));
+  const prefix = settings?.invoicePrefix || "INV";
+
+  if (!last) return `${prefix}-0001`;
 
   const match = last.invoiceNumber.match(/(\d+)$/);
   const num = match ? parseInt(match[1], 10) + 1 : 1;
-  return `INV-${String(num).padStart(4, "0")}`;
+  return `${prefix}-${String(num).padStart(4, "0")}`;
 }
 
 function splitInvoiceNumber(invoiceNumber: string): { prefix: string; number: string } {

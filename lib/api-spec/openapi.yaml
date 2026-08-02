@@ -20,6 +20,8 @@ tags:
     description: Invoice line items
   - name: dashboard
     description: Dashboard summary data
+  - name: settings
+    description: Invoice settings
 
 paths:
   /healthz:
@@ -35,6 +37,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /invoice-settings:
+    get:
+      operationId: getInvoiceSettings
+      tags: [settings]
+      summary: Get invoice settings
+      responses:
+        "200":
+          description: Invoice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceSettings"
+    patch:
+      operationId: updateInvoiceSettings
+      tags: [settings]
+      summary: Update invoice settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceSettingsUpdate"
+      responses:
+        "200":
+          description: Updated invoice settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceSettings"
 
   # ── Customers ──────────────────────────────────────────────────────────────
   /customers:
@@ -823,6 +855,59 @@ components:
         status:
           type: string
           enum: [draft, sent, paid, overdue]
+
+    InvoiceSettings:
+      type: object
+      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, updatedAt]
+      properties:
+        invoicePrefix:
+          type: string
+        invoiceTitle:
+          type: string
+        issuerName:
+          type: string
+        issuerAddress:
+          type: string
+        footerText:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        customFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceCustomField"
+        updatedAt:
+          type: string
+
+    InvoiceCustomField:
+      type: object
+      required: [label, text]
+      properties:
+        label:
+          type: string
+        text:
+          type: string
+
+    InvoiceSettingsUpdate:
+      type: object
+      properties:
+        invoicePrefix:
+          type: string
+          minLength: 1
+        invoiceTitle:
+          type: string
+        issuerName:
+          type: string
+        issuerAddress:
+          type: string
+        footerText:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        customFields:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceCustomField"
 
     InvoiceSummary:
       type: object

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'wouter';
 import {
   useGetInvoice,
+  useGetInvoiceSettings,
   useUpdateInvoice,
   useUpdateInvoiceStatus,
   useDeleteInvoice,
@@ -62,6 +63,7 @@ export default function InvoiceDetail() {
   const { data: invoice, isLoading } = useGetInvoice(invoiceId, {
     query: { enabled: !!invoiceId, queryKey: getGetInvoiceQueryKey(invoiceId) },
   });
+  const { data: invoiceSettings } = useGetInvoiceSettings();
 
   const updateInvoice = useUpdateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
@@ -308,14 +310,27 @@ export default function InvoiceDetail() {
         >
           <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Document factură</p>
+              {invoiceSettings?.logoUrl && (
+                <img
+                  src={invoiceSettings.logoUrl}
+                  alt="Logo companie"
+                  className="mb-4 max-h-14 max-w-[190px] object-contain object-left"
+                />
+              )}
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                {invoiceSettings?.invoiceTitle || 'Document factură'}
+              </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
                 {invoice.invoiceNumber}
               </h1>
             </div>
             <div className="text-right text-sm">
-              <p className="font-semibold text-slate-950">InvoiceDB</p>
-              <p className="mt-1 text-slate-500">Administrare facturi</p>
+              <p className="font-semibold text-slate-950">
+                {invoiceSettings?.issuerName || 'InvoiceDB'}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-slate-500">
+                {invoiceSettings?.issuerAddress || 'Administrare facturi'}
+              </p>
             </div>
           </div>
 
@@ -340,6 +355,19 @@ export default function InvoiceDetail() {
               </div>
             </div>
           </div>
+
+          {invoiceSettings?.customFields.length ? (
+            <div className="grid grid-cols-2 gap-4 border-b border-slate-200 py-5 text-sm md:grid-cols-3">
+              {invoiceSettings.customFields.map((field) => (
+                <div key={`${field.label}-${field.text}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    {field.label}
+                  </p>
+                  <p className="mt-1 whitespace-pre-line text-slate-950">{field.text}</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <div className="py-7">
             <table className="w-full text-sm">
@@ -395,6 +423,11 @@ export default function InvoiceDetail() {
             <div className="border-t border-slate-200 pt-5 text-sm text-slate-600 whitespace-pre-line">
               {invoice.notes}
             </div>
+          )}
+          {invoiceSettings?.footerText && (
+            <p className="mt-5 border-t border-slate-200 pt-5 text-xs text-slate-500 whitespace-pre-line">
+              {invoiceSettings.footerText}
+            </p>
           )}
         </article>
 

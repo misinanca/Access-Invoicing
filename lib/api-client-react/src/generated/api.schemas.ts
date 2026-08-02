@@ -282,6 +282,35 @@ export interface InvoiceStatusUpdate {
   status: InvoiceStatusUpdateStatus;
 }
 
+export interface InvoiceCustomField {
+  label: string;
+  text: string;
+}
+
+export interface InvoiceSettings {
+  invoicePrefix: string;
+  invoiceTitle: string;
+  issuerName: string;
+  issuerAddress: string;
+  footerText: string;
+  /** @nullable */
+  logoUrl: string | null;
+  customFields: InvoiceCustomField[];
+  updatedAt: string;
+}
+
+export interface InvoiceSettingsUpdate {
+  /** @minLength 1 */
+  invoicePrefix?: string;
+  invoiceTitle?: string;
+  issuerName?: string;
+  issuerAddress?: string;
+  footerText?: string;
+  /** @nullable */
+  logoUrl?: string | null;
+  customFields?: InvoiceCustomField[];
+}
+
 export interface InvoiceSummary {
   totalInvoiced: number;
   totalPaid: number;

@@ -1,5 +1,5 @@
 import { Link, useRoute } from 'wouter';
-import { LayoutDashboard, FileText, Users, Package, House } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Package, House, Settings } from 'lucide-react';
 import { ReactNode } from 'react';
 
 interface AppShellProps {
@@ -14,6 +14,7 @@ export function AppShell({ children }: AppShellProps) {
   const [isCustomersDetail] = useRoute('/customers/:id');
   const [isProducts] = useRoute('/products');
   const [isRent] = useRoute('/rent');
+  const [isSettings] = useRoute('/settings');
 
   const isInvoicesActive = isInvoices || isInvoicesDetail;
   const isCustomersActive = isCustomers || isCustomersDetail;
@@ -95,6 +96,19 @@ export function AppShell({ children }: AppShellProps) {
           >
             <Package className="h-4 w-4" />
             Products
+          </Link>
+
+          <Link
+            href="/settings"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
+              isSettings
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground'
+            }`}
+            data-testid="link-settings"
+          >
+            <Settings className="h-4 w-4" />
+            Setări
           </Link>
         </nav>
       </aside>
