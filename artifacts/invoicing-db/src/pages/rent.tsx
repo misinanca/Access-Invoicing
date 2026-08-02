@@ -324,13 +324,17 @@ const defaultLayout: InvoiceLayout = {
 };
 
 function getDefaultDueDate() {
-  const date = new Date();
-  date.setDate(date.getDate() + 30);
-  return date.toISOString().slice(0, 10);
+  return addDays(getToday(), 5);
 }
 
 function getToday() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function addDays(dateValue: string, days: number) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 function getRomanianMonth(month: string) {
@@ -517,7 +521,11 @@ function GenerateRentInvoices({
                   id="rent-invoice-date"
                   type="date"
                   value={invoiceDate}
-                  onChange={(event) => setInvoiceDate(event.target.value)}
+                  onChange={(event) => {
+                    const nextInvoiceDate = event.target.value;
+                    setInvoiceDate(nextInvoiceDate);
+                    setDueDate(addDays(nextInvoiceDate, 5));
+                  }}
                   className="mt-2"
                   data-testid="input-rent-invoice-date"
                 />
@@ -546,7 +554,7 @@ function GenerateRentInvoices({
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-4">
-              Data scadenței este editabilă și se aplică tuturor facturilor generate acum.
+              Data scadenței este setată automat la 5 zile după emitere, dar poate fi modificată înainte de generare.
             </p>
           </div>
 
