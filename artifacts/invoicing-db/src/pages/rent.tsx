@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import {
   getListCustomersQueryKey,
   getGetInvoiceSummaryQueryKey,
@@ -10,7 +10,18 @@ import {
   useUpdateCustomer,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Search, ArrowRightLeft, Save, RotateCcw, House, FilePlus2, Check, Settings2, Printer } from 'lucide-react';
+import {
+  Search,
+  ArrowRightLeft,
+  Save,
+  RotateCcw,
+  House,
+  FilePlus2,
+  FileText,
+  Check,
+  Settings2,
+  Printer,
+} from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,6 +49,20 @@ export default function Rent() {
     const saved = window.localStorage.getItem('eur-ron-rate');
     return saved || String(DEFAULT_RATE);
   });
+  const [invoiceDate, setInvoiceDate] = useState(getToday);
+  const [dueDate, setDueDate] = useState(getDefaultDueDate);
+  const [rentMonth, setRentMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [layout, setLayout] = useState<InvoiceLayout>(() => {
+    try {
+      return {
+        ...defaultLayout,
+        ...JSON.parse(window.localStorage.getItem('rent-invoice-layout') || '{}'),
+      };
+    } catch {
+      return defaultLayout;
+    }
+  });
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const { data: customers, isLoading } = useListCustomers({
     search: search || undefined,
   });
@@ -59,6 +84,12 @@ export default function Rent() {
     }
   };
 
+  const updateLayout = (key: keyof InvoiceLayout, value: string) => {
+    const next = { ...layout, [key]: value };
+    setLayout(next);
+    window.localStorage.setItem('rent-invoice-layout', JSON.stringify(next));
+  };
+
   return (
     <>
       <PageHeader
@@ -76,6 +107,10 @@ export default function Rent() {
             <TabsTrigger value="generate" data-testid="tab-generate-rent-invoices">
               <FilePlus2 className="h-4 w-4 mr-2" />
               Generate rent invoices
+            </TabsTrigger>
+            <TabsTrigger value="preview" data-testid="tab-preview-rent-invoice">
+              <FileText className="h-4 w-4 mr-2" />
+              Preview invoice
             </TabsTrigger>
           </TabsList>
 
@@ -210,6 +245,27 @@ export default function Rent() {
             <GenerateRentInvoices
               customers={customers ?? []}
               isLoading={isLoading}
+              rate={numericRate}
+              invoiceDate={invoiceDate}
+              setInvoiceDate={setInvoiceDate}
+              dueDate={dueDate}
+              setDueDate={setDueDate}
+              rentMonth={rentMonth}
+              setRentMonth={setRentMonth}
+              layout={layout}
+              updateLayout={updateLayout}
+              selectedIds={selectedIds}
+              setSelectedIds={setSelectedIds}
+            />
+          </TabsContent>
+          <TabsContent value="preview">
+            <RentInvoiceDocumentPreview
+              customers={customers ?? []}
+              selectedIds={selectedIds}
+              invoiceDate={invoiceDate}
+              dueDate={dueDate}
+              rentMonth={rentMonth}
+              layout={layout}
               rate={numericRate}
             />
           </TabsContent>
@@ -360,6 +416,16 @@ function GenerateRentInvoices({
   customers,
   isLoading,
   rate,
+  invoiceDate,
+  setInvoiceDate,
+  dueDate,
+  setDueDate,
+  rentMonth,
+  setRentMonth,
+  layout,
+  updateLayout,
+  selectedIds,
+  setSelectedIds,
 }: {
   customers: Array<{
     id: number;
@@ -369,25 +435,21 @@ function GenerateRentInvoices({
   }>;
   isLoading: boolean;
   rate: number;
+  invoiceDate: string;
+  setInvoiceDate: (value: string) => void;
+  dueDate: string;
+  setDueDate: (value: string) => void;
+  rentMonth: string;
+  setRentMonth: (value: string) => void;
+  layout: InvoiceLayout;
+  updateLayout: (key: keyof InvoiceLayout, value: string) => void;
+  selectedIds: number[];
+  setSelectedIds: Dispatch<SetStateAction<number[]>>;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createInvoice = useCreateInvoice();
   const createLineItem = useCreateLineItem();
-  const [invoiceDate, setInvoiceDate] = useState(getToday);
-  const [dueDate, setDueDate] = useState(getDefaultDueDate);
-  const [rentMonth, setRentMonth] = useState(() => new Date().toISOString().slice(0, 7));
-  const [layout, setLayout] = useState<InvoiceLayout>(() => {
-    try {
-      return {
-        ...defaultLayout,
-        ...JSON.parse(window.localStorage.getItem('rent-invoice-layout') || '{}'),
-      };
-    } catch {
-      return defaultLayout;
-    }
-  });
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [generatedCount, setGeneratedCount] = useState(0);
 
   const customersWithRent = customers.filter((customer) => Number(customer.defaultRent ?? 0) > 0);
@@ -400,12 +462,6 @@ function GenerateRentInvoices({
   );
   const allSelected =
     customersWithRent.length > 0 && selectedCustomers.length === customersWithRent.length;
-
-  const updateLayout = (key: keyof InvoiceLayout, value: string) => {
-    const next = { ...layout, [key]: value };
-    setLayout(next);
-    window.localStorage.setItem('rent-invoice-layout', JSON.stringify(next));
-  };
 
   const toggleCustomer = (id: number, checked: boolean | 'indeterminate') => {
     setSelectedIds((current) =>
@@ -685,42 +741,173 @@ function GenerateRentInvoices({
             </div>
           </div>
 
-          <div className="bg-white border border-card-border rounded-lg p-6 shadow-sm print:shadow-none">
-            <div className="flex items-start justify-between border-b-2 border-slate-900 pb-4">
-              <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">Previzualizare</p>
-                <h3 className="text-xl font-bold mt-1">{layout.title || 'FACTURĂ DE CHIRIE'}</h3>
-              </div>
-              <Printer className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="grid grid-cols-2 gap-4 py-4 border-b border-border text-sm">
-              <div>
-                <p className="font-semibold">{layout.issuerName || '—'}</p>
-                <p className="text-muted-foreground whitespace-pre-line mt-1">{layout.issuerAddress || '—'}</p>
-              </div>
-              <div className="text-right">
-                <p>Data: {invoiceDate || '—'}</p>
-                <p>Scadență: <span className="font-semibold">{dueDate || '—'}</span></p>
-              </div>
-            </div>
-            <div className="py-4 text-sm">
-              <p className="text-muted-foreground">Descriere</p>
-              <p className="font-medium mt-2">
-                Chirie pentru luna {getRomanianMonth(rentMonth)} — Apartament nr. 14B
-              </p>
-              <div className="flex justify-between border-t border-border mt-4 pt-3">
-                <span>Total de plată</span>
-                <span className="font-mono font-bold">{formatMoney(rate * 850, 'RON')}</span>
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground border-t border-border pt-3 whitespace-pre-line">
-              {layout.footer || '—'}
-            </p>
-            <p className="text-[11px] text-muted-foreground mt-4">
-              Exemplul se actualizează după alegerea clienților și se aplică pentru fiecare factură generată.
-            </p>
+          <div className="rounded-lg border border-dashed border-border p-5 text-sm text-muted-foreground">
+            Editează setările aici, apoi deschide fila <strong>Preview invoice</strong> pentru documentul complet.
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function formatDocumentDate(value: string) {
+  if (!value) return '—';
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('ro-RO', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date);
+}
+
+function RentInvoiceDocumentPreview({
+  customers,
+  selectedIds,
+  invoiceDate,
+  dueDate,
+  rentMonth,
+  layout,
+  rate,
+}: {
+  customers: Array<{
+    id: number;
+    name: string;
+    flatNumber?: string | null;
+    defaultRent?: number | null;
+  }>;
+  selectedIds: number[];
+  invoiceDate: string;
+  dueDate: string;
+  rentMonth: string;
+  layout: InvoiceLayout;
+  rate: number;
+}) {
+  const customersWithRent = customers.filter((customer) => Number(customer.defaultRent ?? 0) > 0);
+  const selectedCustomer = customersWithRent.find((customer) => selectedIds.includes(customer.id));
+  const customer = selectedCustomer ?? customersWithRent[0];
+
+  if (!customer) {
+    return (
+      <div className="rounded-lg border border-dashed border-border bg-card p-12 text-center">
+        <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+        <h2 className="text-lg font-semibold">Nu există date pentru previzualizare</h2>
+        <p className="text-sm text-muted-foreground mt-2">
+          Adaugă o chirie implicită unui client pentru a vedea documentul.
+        </p>
+      </div>
+    );
+  }
+
+  const rentEur = Number(customer.defaultRent ?? 0);
+  const rentRon = Number((rentEur * rate).toFixed(2));
+  const flatLabel = customer.flatNumber
+    ? `Apartament nr. ${customer.flatNumber}`
+    : 'Apartament fără număr';
+  const description = `Chirie pentru luna ${getRomanianMonth(rentMonth)} — ${flatLabel}`;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold">Previzualizare factură</h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Documentul se actualizează automat pe baza setărilor din fila Generate rent invoices.
+          </p>
+        </div>
+        <Button variant="outline" onClick={() => window.print()} data-testid="button-print-rent-invoice">
+          <Printer className="h-4 w-4 mr-2" />
+          Printează documentul
+        </Button>
+      </div>
+
+      <div className="rounded-xl bg-slate-100 p-4 md:p-8 print:bg-white print:p-0">
+        <article
+          className="mx-auto min-h-[980px] max-w-[820px] bg-white px-8 py-9 shadow-lg ring-1 ring-slate-200 print:max-w-none print:min-h-0 print:px-0 print:py-0 print:shadow-none print:ring-0"
+          data-testid="rent-invoice-document"
+        >
+          <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-7">
+            <div className="max-w-[55%]">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Document fiscal
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-slate-950">
+                {layout.title || 'FACTURĂ DE CHIRIE'}
+              </h1>
+              <p className="mt-2 text-sm text-slate-500">Schiță pentru verificare înainte de generare</p>
+            </div>
+            <div className="text-right text-sm text-slate-600">
+              <p className="font-semibold text-slate-950">{layout.issuerName || '—'}</p>
+              <p className="mt-1 whitespace-pre-line">{layout.issuerAddress || '—'}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-8 border-b border-slate-200 py-7 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Facturat către</p>
+              <p className="mt-3 text-base font-semibold text-slate-950">{customer.name}</p>
+              <p className="mt-1 text-slate-600">{flatLabel}</p>
+            </div>
+            <div className="text-right">
+              <div className="flex justify-between gap-5">
+                <span className="text-slate-500">Data emiterii</span>
+                <span className="font-medium text-slate-950">{formatDocumentDate(invoiceDate)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-5">
+                <span className="text-slate-500">Data scadenței</span>
+                <span className="font-semibold text-slate-950">{formatDocumentDate(dueDate)}</span>
+              </div>
+              <div className="mt-2 flex justify-between gap-5">
+                <span className="text-slate-500">Monedă</span>
+                <span className="font-medium text-slate-950">RON</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="py-8">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
+                  <th className="pb-3 font-semibold">Descriere</th>
+                  <th className="w-24 pb-3 text-right font-semibold">Cant.</th>
+                  <th className="w-36 pb-3 text-right font-semibold">Preț unitar</th>
+                  <th className="w-36 pb-3 text-right font-semibold">Valoare</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-slate-200">
+                  <td className="py-5 pr-4 font-medium text-slate-950">{description}</td>
+                  <td className="py-5 text-right text-slate-600">1</td>
+                  <td className="py-5 text-right font-mono text-slate-700">{formatMoney(rentRon, 'RON')}</td>
+                  <td className="py-5 text-right font-mono font-semibold text-slate-950">{formatMoney(rentRon, 'RON')}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="ml-auto mt-7 max-w-sm space-y-3 text-sm">
+              <div className="flex justify-between text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-mono">{formatMoney(rentRon, 'RON')}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>TVA</span>
+                <span className="font-mono">{formatMoney(0, 'RON')}</span>
+              </div>
+              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950">
+                <span>Total de plată</span>
+                <span className="font-mono">{formatMoney(rentRon, 'RON')}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-auto border-t border-slate-200 pt-6 text-sm text-slate-600">
+            <p className="font-semibold text-slate-950">Detalii plată</p>
+            <p className="mt-2">
+              Curs de schimb utilizat: 1 EUR = {rate.toFixed(4)} RON. Chiria lunii {getRomanianMonth(rentMonth)}.
+            </p>
+            <p className="mt-5 whitespace-pre-line text-xs text-slate-500">{layout.footer || '—'}</p>
+          </div>
+        </article>
       </div>
     </div>
   );
