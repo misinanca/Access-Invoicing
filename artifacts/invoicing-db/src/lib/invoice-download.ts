@@ -106,7 +106,7 @@ export async function downloadInvoiceFile(
       body { margin: 0; padding: 40px; background: #f4f5f7; color: #0f172a; font-family: Arial, sans-serif; }
       .document { max-width: 820px; margin: 0 auto; padding: 42px; background: white; }
       .header { display: flex; justify-content: space-between; gap: 32px; border-bottom: 2px solid #0f172a; padding-bottom: 24px; }
-      .logo { display: block; max-width: 190px; max-height: 56px; object-fit: contain; object-position: left; margin-bottom: 16px; }
+      .logo { display: block; max-width: 950px; max-height: 280px; object-fit: contain; object-position: left; margin-bottom: 16px; }
       .eyebrow, .label { color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
       h1 { margin: 8px 0 0; font-size: 30px; letter-spacing: -.03em; }
       .issuer { max-width: 250px; color: #64748b; font-size: 14px; text-align: right; white-space: pre-line; }

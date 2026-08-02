@@ -842,7 +842,7 @@ function RentInvoiceDocumentPreview({
                 <img
                   src={layout.logoUrl}
                   alt="Logo companie"
-                  className="mb-4 max-h-14 max-w-[190px] object-contain object-left"
+                  className="mb-4 max-h-[280px] max-w-[950px] object-contain object-left"
                 />
               )}
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
