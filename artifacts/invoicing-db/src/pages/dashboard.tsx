@@ -1,10 +1,48 @@
+import { useState } from 'react';
 import { useGetInvoiceSummary, useGetRecentInvoices } from '@workspace/api-client-react';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatDate } from '@/lib/utils';
 import { Link } from 'wouter';
 import { TrendingUp, DollarSign, FileText, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+
+const DEFAULT_RATE = 4.97;
+
+function getExchangeRate() {
+  const savedRate = Number(window.localStorage.getItem('eur-ron-rate'));
+  return savedRate > 0 ? savedRate : DEFAULT_RATE;
+}
+
+function formatDashboardCurrency(amount: number, currency: 'EUR' | 'RON') {
+  return new Intl.NumberFormat('ro-RO', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
+}
+
+function DashboardAmount({ ronAmount }: { ronAmount: number }) {
+  const rate = useExchangeRate();
+  const eurAmount = ronAmount / rate;
+
+  return (
+    <div>
+      <div className="text-3xl font-bold font-mono tracking-tight">
+        {formatDashboardCurrency(eurAmount, 'EUR')}
+      </div>
+      <div className="mt-1 text-sm font-normal text-muted-foreground">
+        ({formatDashboardCurrency(ronAmount, 'RON')})
+      </div>
+    </div>
+  );
+}
+
+function useExchangeRate() {
+  const [rate] = useState(getExchangeRate);
+  return rate;
+}
 
 export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading } = useGetInvoiceSummary();
@@ -20,28 +58,28 @@ export default function Dashboard() {
           <SummaryCard
             icon={DollarSign}
             label="Total Invoiced"
-            value={formatCurrency(summary?.totalInvoiced ?? 0)}
+            ronAmount={summary?.totalInvoiced ?? 0}
             loading={summaryLoading}
             color="text-primary"
           />
           <SummaryCard
             icon={TrendingUp}
             label="Total Paid"
-            value={formatCurrency(summary?.totalPaid ?? 0)}
+            ronAmount={summary?.totalPaid ?? 0}
             loading={summaryLoading}
             color="text-green-600"
           />
           <SummaryCard
             icon={FileText}
             label="Outstanding"
-            value={formatCurrency(summary?.totalOutstanding ?? 0)}
+            ronAmount={summary?.totalOutstanding ?? 0}
             loading={summaryLoading}
             color="text-blue-600"
           />
           <SummaryCard
             icon={Clock}
             label="Overdue"
-            value={formatCurrency(summary?.totalOverdue ?? 0)}
+            ronAmount={summary?.totalOverdue ?? 0}
             loading={summaryLoading}
             color="text-red-600"
           />
@@ -138,7 +176,7 @@ export default function Dashboard() {
                         {formatDate(invoice.dueDate)}
                       </td>
                       <td className="px-6 py-4 text-right font-mono font-semibold">
-                        {formatCurrency(invoice.total)}
+                        <DashboardAmount ronAmount={invoice.total} />
                       </td>
                     </tr>
                   ))}
@@ -155,12 +193,12 @@ export default function Dashboard() {
 interface SummaryCardProps {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: string;
+  ronAmount: number;
   loading: boolean;
   color: string;
 }
 
-function SummaryCard({ icon: Icon, label, value, loading, color }: SummaryCardProps) {
+function SummaryCard({ icon: Icon, label, ronAmount, loading, color }: SummaryCardProps) {
   return (
     <div className="bg-card border border-card-border rounded-lg p-6">
       <div className="flex items-center gap-3 mb-3">
@@ -174,7 +212,7 @@ function SummaryCard({ icon: Icon, label, value, loading, color }: SummaryCardPr
       {loading ? (
         <Skeleton className="h-8 w-32" />
       ) : (
-        <div className="text-3xl font-bold font-mono tracking-tight">{value}</div>
+        <DashboardAmount ronAmount={ronAmount} />
       )}
     </div>
   );
