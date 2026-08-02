@@ -1,10 +1,15 @@
 import { useState } from 'react';
-import { useListInvoices, useCreateInvoice, getListInvoicesQueryKey } from '@workspace/api-client-react';
+import {
+  useListInvoices,
+  useCreateInvoice,
+  useDeleteInvoice,
+  getListInvoicesQueryKey,
+} from '@workspace/api-client-react';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { Link } from 'wouter';
-import { Plus, Search, FileText } from 'lucide-react';
+import { Plus, Search, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,6 +19,17 @@ import { Label } from '@/components/ui/label';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import type { InvoiceStatus } from '@workspace/api-client-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 export default function Invoices() {
   const [search, setSearch] = useState('');
@@ -106,6 +122,7 @@ export default function Invoices() {
                     <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Total
                     </th>
+                    <th className="w-16 px-6 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -145,6 +162,12 @@ export default function Invoices() {
                       <td className="px-6 py-4 text-right font-mono font-semibold">
                         {formatCurrency(invoice.total)}
                       </td>
+                      <td className="px-6 py-4 text-right">
+                        <DeleteInvoiceButton
+                          invoiceId={invoice.id}
+                          invoiceNumber={invoice.invoiceNumber}
+                        />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -154,6 +177,71 @@ export default function Invoices() {
         </div>
       </div>
     </>
+  );
+}
+
+function DeleteInvoiceButton({
+  invoiceId,
+  invoiceNumber,
+}: {
+  invoiceId: number;
+  invoiceNumber: string;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const deleteInvoice = useDeleteInvoice();
+
+  const handleDelete = () => {
+    deleteInvoice.mutate(
+      { id: invoiceId },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+          toast({ title: 'Factura a fost ștearsă' });
+        },
+        onError: () => {
+          toast({
+            title: 'Factura nu a putut fi ștearsă',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          aria-label={`Șterge factura ${invoiceNumber}`}
+          data-testid={`button-delete-invoice-${invoiceId}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Ștergi factura {invoiceNumber}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Această acțiune nu poate fi anulată. Factura și toate pozițiile sale vor fi șterse definitiv.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Anulează</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDelete}
+            disabled={deleteInvoice.isPending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            data-testid={`button-confirm-delete-invoice-${invoiceId}`}
+          >
+            {deleteInvoice.isPending ? 'Se șterge...' : 'Șterge factura'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 
