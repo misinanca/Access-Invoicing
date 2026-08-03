@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   useListInvoices,
   getInvoice,
@@ -10,12 +10,13 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { downloadInvoiceFile } from '@/lib/invoice-download';
+import { downloadInvoiceFile, downloadInvoiceFilesAsZip } from '@/lib/invoice-download';
 import { Link } from 'wouter';
-import { Plus, Search, FileText, Trash2, Download } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Download, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -38,6 +39,8 @@ export default function Invoices() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<number>>(new Set());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
   const params = {
     search: search || undefined,
@@ -45,6 +48,69 @@ export default function Invoices() {
   };
 
   const { data: invoices, isLoading } = useListInvoices(params);
+  const visibleInvoices = invoices ?? [];
+  const selectedVisibleInvoices = visibleInvoices.filter((invoice) => selectedInvoiceIds.has(invoice.id));
+  const allVisibleSelected =
+    visibleInvoices.length > 0 && selectedVisibleInvoices.length === visibleInvoices.length;
+  const someVisibleSelected =
+    selectedVisibleInvoices.length > 0 && !allVisibleSelected;
+
+  useEffect(() => {
+    setSelectedInvoiceIds((current) => {
+      const visibleIds = new Set(visibleInvoices.map((invoice) => invoice.id));
+      const next = new Set([...current].filter((id) => visibleIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
+  }, [invoices]);
+
+  const toggleInvoiceSelection = (invoiceId: number) => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
+      if (next.has(invoiceId)) {
+        next.delete(invoiceId);
+      } else {
+        next.add(invoiceId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllVisibleInvoices = () => {
+    setSelectedInvoiceIds((current) => {
+      const next = new Set(current);
+      if (allVisibleSelected) {
+        visibleInvoices.forEach((invoice) => next.delete(invoice.id));
+      } else {
+        visibleInvoices.forEach((invoice) => next.add(invoice.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedVisibleInvoices.length === 0) return;
+    setIsBulkDownloading(true);
+    try {
+      const [details, invoiceSettings] = await Promise.all([
+        Promise.all(selectedVisibleInvoices.map((invoice) => getInvoice(invoice.id))),
+        getInvoiceSettings(),
+      ]);
+      const filename = await downloadInvoiceFilesAsZip(details, invoiceSettings);
+      toast({
+        title: 'Facturile au fost descărcate',
+        description: `${selectedVisibleInvoices.length} facturi în ${filename}`,
+      });
+    } catch {
+      toast({
+        title: 'Facturile nu au putut fi descărcate',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsBulkDownloading(false);
+    }
+  };
+
+  const { toast } = useToast();
 
   return (
     <>
@@ -83,6 +149,22 @@ export default function Invoices() {
           </Select>
         </div>
 
+        {selectedVisibleInvoices.length > 0 && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
+            <p className="text-sm text-foreground">
+              {selectedVisibleInvoices.length} invoice{selectedVisibleInvoices.length === 1 ? '' : 's'} selected
+            </p>
+            <Button
+              onClick={handleBulkDownload}
+              disabled={isBulkDownloading}
+              data-testid="button-download-selected-invoices"
+            >
+              <Archive className="mr-2 h-4 w-4" />
+              {isBulkDownloading ? 'Preparing ZIP...' : 'Download selected PDFs'}
+            </Button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
           {isLoading ? (
@@ -107,7 +189,15 @@ export default function Invoices() {
               <table className="w-full">
                 <thead className="bg-muted/50 border-b border-border">
                   <tr>
-                    <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <th className="w-14 px-6 py-3">
+                          <Checkbox
+                            checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                            onCheckedChange={toggleAllVisibleInvoices}
+                            aria-label="Select all visible invoices"
+                            data-testid="checkbox-select-all-invoices"
+                          />
+                        </th>
+                        <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Invoice
                     </th>
                     <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
@@ -138,6 +228,14 @@ export default function Invoices() {
                       className="hover:bg-muted/30 transition-colors"
                       data-testid={`row-invoice-${invoice.id}`}
                     >
+                      <td className="px-6 py-4">
+                        <Checkbox
+                          checked={selectedInvoiceIds.has(invoice.id)}
+                          onCheckedChange={() => toggleInvoiceSelection(invoice.id)}
+                          aria-label={`Select invoice ${invoice.invoiceNumber}`}
+                          data-testid={`checkbox-invoice-${invoice.id}`}
+                        />
+                      </td>
                       <td className="px-6 py-4">
                         <Link
                           href={`/invoices/${invoice.id}`}

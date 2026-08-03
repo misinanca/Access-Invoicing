@@ -7,4 +7,4 @@ Invoice downloads are generated client-side by rendering the standalone invoice 
 
 **Why:** A direct HTML download was not sufficient for the requested PDF output, while client-side rendering avoids adding a server-side document-generation service.
 
-**How to apply:** Keep invoice detail and invoice-list download actions routed through the shared PDF generator so branding, custom fields, totals, and filenames remain consistent.
+**How to apply:** Keep invoice detail and invoice-list download actions routed through the shared PDF generator so branding, custom fields, totals, and filenames remain consistent. For multi-select downloads, package the generated PDFs into one `facturi-selectate.zip` archive rather than triggering multiple browser downloads.
