@@ -6,6 +6,7 @@ import { formatDate } from '@/lib/utils';
 import { Link } from 'wouter';
 import { TrendingUp, DollarSign, FileText, Clock } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSelectedCompanyId } from '@/lib/company-selection';
 
 const DEFAULT_RATE = 4.97;
 
@@ -45,8 +46,15 @@ function useExchangeRate() {
 }
 
 export default function Dashboard() {
-  const { data: summary, isLoading: summaryLoading } = useGetInvoiceSummary();
-  const { data: recentInvoices, isLoading: invoicesLoading } = useGetRecentInvoices();
+  const selectedCompanyId = useSelectedCompanyId();
+  const summaryQueryKey = ['/api/invoices/summary', selectedCompanyId] as const;
+  const recentInvoicesQueryKey = ['/api/invoices/recent', selectedCompanyId] as const;
+  const { data: summary, isLoading: summaryLoading } = useGetInvoiceSummary({
+    query: { queryKey: summaryQueryKey },
+  });
+  const { data: recentInvoices, isLoading: invoicesLoading } = useGetRecentInvoices({
+    query: { queryKey: recentInvoicesQueryKey },
+  });
 
   return (
     <>

@@ -13,6 +13,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  getSelectedCompanyId,
+  setSelectedCompanyId,
+  COMPANY_STORAGE_KEY,
+  useSelectedCompanyId,
+} from '@/lib/company-selection';
 
 interface AppShellProps {
   children: ReactNode;
@@ -25,10 +31,7 @@ export function AppShell({ children }: AppShellProps) {
   const { toast } = useToast();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [companyName, setCompanyName] = useState('');
-  const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
-    if (typeof window === 'undefined') return '1';
-    return window.localStorage.getItem('invoice-db-company-id') ?? '1';
-  });
+  const selectedCompanyId = useSelectedCompanyId();
   const [isDashboard] = useRoute('/');
   const [isInvoices] = useRoute('/invoices');
   const [isInvoicesDetail] = useRoute('/invoices/:id');
@@ -46,18 +49,16 @@ export function AppShell({ children }: AppShellProps) {
 
   useEffect(() => {
     if (!companies?.length) return;
-    const savedId = window.localStorage.getItem('invoice-db-company-id');
+    const savedId = getSelectedCompanyId();
     const isValid = savedId && companies.some((company) => String(company.id) === savedId);
     if (!isValid) {
       const firstCompanyId = String(companies[0].id);
-      window.localStorage.setItem('invoice-db-company-id', firstCompanyId);
       setSelectedCompanyId(firstCompanyId);
     }
   }, [companies]);
 
   const handleCompanyChange = (companyId: string) => {
     setSelectedCompanyId(companyId);
-    window.localStorage.setItem('invoice-db-company-id', companyId);
     queryClient.clear();
   };
 
@@ -228,7 +229,7 @@ export function AppShell({ children }: AppShellProps) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">{children}</main>
+      <main key={selectedCompanyId} className="flex-1 overflow-auto">{children}</main>
 
       <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
         <DialogContent>
