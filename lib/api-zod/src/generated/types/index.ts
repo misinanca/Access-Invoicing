@@ -7,6 +7,7 @@
  */
 
 export * from './company';
+export * from './companyUpdate';
 export * from './customer';
 export * from './customerInput';
 export * from './customerUpdate';

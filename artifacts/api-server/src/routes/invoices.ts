@@ -98,7 +98,10 @@ async function recalcInvoiceTotals(invoiceId: number, companyId?: number): Promi
       total: String(total.toFixed(2)),
       updatedAt: new Date(),
     })
-    .where(eq(invoicesTable.id, invoiceId));
+    .where(and(
+      eq(invoicesTable.id, invoiceId),
+      ...(companyId === undefined ? [] : [eq(invoicesTable.companyId, companyId)]),
+    ));
 }
 
 async function invoiceBelongsToCompany(invoiceId: number, companyId: number): Promise<boolean> {
@@ -466,7 +469,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   }
 
   if (parsed.data.taxRate !== undefined) {
-    await recalcInvoiceTotals(params.data.id);
+    await recalcInvoiceTotals(params.data.id, companyId);
   }
 
   const [row] = await db

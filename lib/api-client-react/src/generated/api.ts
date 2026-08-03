@@ -21,6 +21,7 @@ import type {
 
 import type {
   Company,
+  CompanyUpdate,
   Customer,
   CustomerInput,
   CustomerUpdate,
@@ -227,6 +228,78 @@ export function useListCompanies<TData = Awaited<ReturnType<typeof listCompanies
 
 
 
+
+export const getUpdateCompanyUrl = (id: number,) => {
+
+
+
+
+  return `/api/companies/${id}`
+}
+
+/**
+ * @summary Rename the selected company
+ */
+export const updateCompany = async (id: number,
+    companyUpdate: CompanyUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Company> => {
+
+  return customFetch<Company>(getUpdateCompanyUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(companyUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateCompanyMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext> => {
+
+const mutationKey = ['updateCompany'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateCompany>>, {id: number;data: BodyType<CompanyUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateCompany(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateCompanyMutationResult = NonNullable<Awaited<ReturnType<typeof updateCompany>>>
+    export type UpdateCompanyMutationBody = BodyType<CompanyUpdate>
+    export type UpdateCompanyMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Rename the selected company
+ */
+export const useUpdateCompany = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateCompany>>, TError,{id: number;data: BodyType<CompanyUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateCompany>>,
+        TError,
+        {id: number;data: BodyType<CompanyUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateCompanyMutationOptions(options));
+    }
 
 export const getGetInvoiceSettingsUrl = () => {
 

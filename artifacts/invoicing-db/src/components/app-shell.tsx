@@ -1,8 +1,18 @@
 import { Link, useRoute } from 'wouter';
-import { LayoutDashboard, FileText, Users, Package, House, Settings } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, Package, House, Settings, Pencil } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
-import { useListCompanies } from '@workspace/api-client-react';
+import { useListCompanies, useUpdateCompany } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
 interface AppShellProps {
   children: ReactNode;
@@ -11,6 +21,10 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const queryClient = useQueryClient();
   const { data: companies } = useListCompanies();
+  const updateCompany = useUpdateCompany();
+  const { toast } = useToast();
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [companyName, setCompanyName] = useState('');
   const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
     if (typeof window === 'undefined') return '1';
     return window.localStorage.getItem('invoice-db-company-id') ?? '1';
@@ -26,6 +40,9 @@ export function AppShell({ children }: AppShellProps) {
 
   const isInvoicesActive = isInvoices || isInvoicesDetail;
   const isCustomersActive = isCustomers || isCustomersDetail;
+  const selectedCompany = companies?.find(
+    (company) => String(company.id) === selectedCompanyId,
+  );
 
   useEffect(() => {
     if (!companies?.length) return;
@@ -44,6 +61,44 @@ export function AppShell({ children }: AppShellProps) {
     queryClient.clear();
   };
 
+  const openRenameDialog = () => {
+    if (!selectedCompany) return;
+    setCompanyName(selectedCompany.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameCompany = () => {
+    const name = companyName.trim();
+    if (!selectedCompany || !name) return;
+
+    updateCompany.mutate(
+      { id: selectedCompany.id, data: { name } },
+      {
+        onSuccess: (updatedCompany) => {
+          queryClient.setQueryData(
+            ['/api/companies'],
+            (currentCompanies: typeof companies | undefined) =>
+              currentCompanies?.map((company) =>
+                company.id === updatedCompany.id ? updatedCompany : company,
+              ),
+          );
+          setRenameDialogOpen(false);
+          toast({
+            title: 'Compania a fost redenumită',
+            description: `Noul nume este „${updatedCompany.name}”.`,
+          });
+        },
+        onError: (error) => {
+          toast({
+            title: 'Redenumirea a eșuat',
+            description: error instanceof Error ? error.message : 'Încearcă din nou.',
+            variant: 'destructive',
+          });
+        },
+      },
+    );
+  };
+
   return (
     <div className="flex min-h-[100dvh] bg-background">
       {/* Sidebar */}
@@ -55,25 +110,40 @@ export function AppShell({ children }: AppShellProps) {
           <p className="text-xs text-sidebar-foreground/60 mt-0.5 uppercase tracking-wider">
             Ledger System
           </p>
-          <label className="block mt-5">
+          <div className="mt-5">
             <span className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
               Companie activă
             </span>
-            <select
-              value={selectedCompanyId}
-              onChange={(event) => handleCompanyChange(event.target.value)}
-              className="mt-1.5 w-full rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-2 text-sm text-sidebar-accent-foreground outline-none focus:ring-2 focus:ring-sidebar-ring"
-              aria-label="Selectează compania"
-              data-testid="select-company"
-              disabled={!companies?.length}
-            >
-              {(companies ?? []).map((company) => (
-                <option key={company.id} value={company.id}>
-                  {company.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <div className="mt-1.5 flex items-center gap-2">
+              <select
+                value={selectedCompanyId}
+                onChange={(event) => handleCompanyChange(event.target.value)}
+                className="min-w-0 flex-1 rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-2 text-sm text-sidebar-accent-foreground outline-none focus:ring-2 focus:ring-sidebar-ring"
+                aria-label="Selectează compania"
+                data-testid="select-company"
+                disabled={!companies?.length}
+              >
+                {(companies ?? []).map((company) => (
+                  <option key={company.id} value={company.id}>
+                    {company.name}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
+                onClick={openRenameDialog}
+                disabled={!selectedCompany || updateCompany.isPending}
+                aria-label="Redenumește compania activă"
+                title="Redenumește compania"
+                data-testid="button-rename-company"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
@@ -159,6 +229,47 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-auto">{children}</main>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redenumește compania</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <label htmlFor="company-name" className="text-sm font-medium">
+              Numele companiei
+            </label>
+            <Input
+              id="company-name"
+              value={companyName}
+              onChange={(event) => setCompanyName(event.target.value)}
+              maxLength={120}
+              autoFocus
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') handleRenameCompany();
+              }}
+              data-testid="input-company-name"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRenameDialogOpen(false)}
+            >
+              Anulează
+            </Button>
+            <Button
+              type="button"
+              onClick={handleRenameCompany}
+              disabled={!companyName.trim() || updateCompany.isPending}
+              data-testid="button-save-company-name"
+            >
+              {updateCompany.isPending ? 'Se salvează...' : 'Salvează'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -8,7 +8,6 @@
 import * as zodImport from 'zod';
 
 const zod = { ...zodImport, int: () => zodImport.number().int() };
-const integer = () => zodImport.number().int();
 
 
 /**
@@ -24,11 +23,33 @@ export const HealthCheckResponse = zod.object({
  * @summary List available companies
  */
 export const ListCompaniesResponseItem = zod.object({
-  "id": integer(),
+  "id": zod.int(),
   "name": zod.string(),
   "createdAt": zod.string()
 })
 export const ListCompaniesResponse = zod.array(ListCompaniesResponseItem)
+
+
+/**
+ * @summary Rename the selected company
+ */
+export const UpdateCompanyParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+export const updateCompanyBodyNameMax = 120;
+
+
+
+export const UpdateCompanyBody = zod.object({
+  "name": zod.string().min(1).max(updateCompanyBodyNameMax)
+})
+
+export const UpdateCompanyResponse = zod.object({
+  "id": zod.int(),
+  "name": zod.string(),
+  "createdAt": zod.string()
+})
 
 
 /**

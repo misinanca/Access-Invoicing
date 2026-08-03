@@ -15,6 +15,14 @@ export interface Company {
   createdAt: string;
 }
 
+export interface CompanyUpdate {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  name: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }

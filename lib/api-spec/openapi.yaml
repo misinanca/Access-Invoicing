@@ -55,6 +55,43 @@ paths:
                 items:
                   $ref: "#/components/schemas/Company"
 
+  /companies/{id}:
+    patch:
+      operationId: updateCompany
+      tags: [companies]
+      summary: Rename the selected company
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanyUpdate"
+      responses:
+        "200":
+          description: Updated company
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Company"
+        "400":
+          description: Invalid company name
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Company not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /invoice-settings:
     get:
       operationId: getInvoiceSettings
@@ -577,6 +614,15 @@ components:
           type: string
         createdAt:
           type: string
+
+    CompanyUpdate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
 
     ErrorResponse:
       type: object
