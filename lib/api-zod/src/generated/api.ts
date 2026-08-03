@@ -7,9 +7,8 @@
  */
 import * as zodImport from 'zod';
 
-const zod = Object.assign({}, zodImport, {
-  int: () => zodImport.number().int(),
-});
+const zod = { ...zodImport, int: () => zodImport.number().int() };
+const integer = () => zodImport.number().int();
 
 
 /**
@@ -17,8 +16,19 @@ const zod = Object.assign({}, zodImport, {
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  "status": zod.string()
+  "status": zod.string().optional()
 })
+
+
+/**
+ * @summary List available companies
+ */
+export const ListCompaniesResponseItem = zod.object({
+  "id": integer(),
+  "name": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListCompaniesResponse = zod.array(ListCompaniesResponseItem)
 
 
 /**

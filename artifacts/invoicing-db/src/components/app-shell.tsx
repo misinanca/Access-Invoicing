@@ -1,12 +1,20 @@
 import { Link, useRoute } from 'wouter';
 import { LayoutDashboard, FileText, Users, Package, House, Settings } from 'lucide-react';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import { useListCompanies } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AppShellProps {
   children: ReactNode;
 }
 
 export function AppShell({ children }: AppShellProps) {
+  const queryClient = useQueryClient();
+  const { data: companies } = useListCompanies();
+  const [selectedCompanyId, setSelectedCompanyId] = useState(() => {
+    if (typeof window === 'undefined') return '1';
+    return window.localStorage.getItem('invoice-db-company-id') ?? '1';
+  });
   const [isDashboard] = useRoute('/');
   const [isInvoices] = useRoute('/invoices');
   const [isInvoicesDetail] = useRoute('/invoices/:id');
@@ -19,6 +27,23 @@ export function AppShell({ children }: AppShellProps) {
   const isInvoicesActive = isInvoices || isInvoicesDetail;
   const isCustomersActive = isCustomers || isCustomersDetail;
 
+  useEffect(() => {
+    if (!companies?.length) return;
+    const savedId = window.localStorage.getItem('invoice-db-company-id');
+    const isValid = savedId && companies.some((company) => String(company.id) === savedId);
+    if (!isValid) {
+      const firstCompanyId = String(companies[0].id);
+      window.localStorage.setItem('invoice-db-company-id', firstCompanyId);
+      setSelectedCompanyId(firstCompanyId);
+    }
+  }, [companies]);
+
+  const handleCompanyChange = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    window.localStorage.setItem('invoice-db-company-id', companyId);
+    queryClient.clear();
+  };
+
   return (
     <div className="flex min-h-[100dvh] bg-background">
       {/* Sidebar */}
@@ -30,6 +55,25 @@ export function AppShell({ children }: AppShellProps) {
           <p className="text-xs text-sidebar-foreground/60 mt-0.5 uppercase tracking-wider">
             Ledger System
           </p>
+          <label className="block mt-5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+              Companie activă
+            </span>
+            <select
+              value={selectedCompanyId}
+              onChange={(event) => handleCompanyChange(event.target.value)}
+              className="mt-1.5 w-full rounded-md border border-sidebar-border bg-sidebar-accent px-2.5 py-2 text-sm text-sidebar-accent-foreground outline-none focus:ring-2 focus:ring-sidebar-ring"
+              aria-label="Selectează compania"
+              data-testid="select-company"
+              disabled={!companies?.length}
+            >
+              {(companies ?? []).map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         <nav className="flex-1 p-4 space-y-1">

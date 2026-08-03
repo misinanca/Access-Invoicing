@@ -3,6 +3,7 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { ensureCompanies } from "./lib/company-context";
 
 const app: Express = express();
 
@@ -30,6 +31,15 @@ app.use(cors());
 // Allow enough room for a 2 MB image after base64 encoding.
 app.use(express.json({ limit: "4mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+app.use(async (_req, _res, next) => {
+  try {
+    await ensureCompanies();
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 app.use("/api", router);
 

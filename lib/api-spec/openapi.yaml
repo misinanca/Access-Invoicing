@@ -22,6 +22,8 @@ tags:
     description: Dashboard summary data
   - name: settings
     description: Invoice settings
+  - name: companies
+    description: Company selection
 
 paths:
   /healthz:
@@ -37,6 +39,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /companies:
+    get:
+      operationId: listCompanies
+      tags: [companies]
+      summary: List available companies
+      responses:
+        "200":
+          description: Available companies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Company"
 
   /invoice-settings:
     get:
@@ -549,8 +566,17 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+
+    Company:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        createdAt:
+          type: string
 
     ErrorResponse:
       type: object

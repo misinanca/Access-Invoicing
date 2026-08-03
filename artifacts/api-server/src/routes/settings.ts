@@ -6,11 +6,11 @@ import {
   UpdateInvoiceSettingsBody,
   UpdateInvoiceSettingsResponse,
 } from "@workspace/api-zod";
+import { getCompanyId } from "../lib/company-context";
 
 const router: IRouter = Router();
 
 const DEFAULT_SETTINGS = {
-  id: 1,
   invoicePrefix: "INV",
   invoiceTitle: "FACTURĂ DE CHIRIE",
   issuerName: "Administrare imobile",
@@ -41,16 +41,16 @@ function validateLogoUrl(logoUrl: string | null | undefined): string | null {
   return logoUrl;
 }
 
-async function ensureSettings() {
+async function ensureSettings(companyId: number) {
   await db
     .insert(invoiceSettingsTable)
-    .values(DEFAULT_SETTINGS)
-    .onConflictDoNothing({ target: invoiceSettingsTable.id });
+    .values({ ...DEFAULT_SETTINGS, id: companyId, companyId })
+    .onConflictDoNothing({ target: invoiceSettingsTable.companyId });
 
   const [settings] = await db
     .select()
     .from(invoiceSettingsTable)
-    .where(eq(invoiceSettingsTable.id, 1));
+    .where(eq(invoiceSettingsTable.companyId, companyId));
 
   if (!settings) {
     throw new Error("Invoice settings could not be initialized");
@@ -68,19 +68,20 @@ function formatSettings(settings: typeof invoiceSettingsTable.$inferSelect) {
   };
 }
 
-router.get("/invoice-settings", async (_req, res): Promise<void> => {
-  const settings = await ensureSettings();
+router.get("/invoice-settings", async (req, res): Promise<void> => {
+  const settings = await ensureSettings(getCompanyId(req));
   res.json(GetInvoiceSettingsResponse.parse(formatSettings(settings)));
 });
 
 router.patch("/invoice-settings", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const parsed = UpdateInvoiceSettingsBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  await ensureSettings();
+  await ensureSettings(companyId);
 
   const updateData: Record<string, unknown> = {
     updatedAt: new Date(),
@@ -110,7 +111,7 @@ router.patch("/invoice-settings", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(invoiceSettingsTable)
     .set(updateData)
-    .where(eq(invoiceSettingsTable.id, 1))
+    .where(eq(invoiceSettingsTable.companyId, companyId))
     .returning();
 
   res.json(UpdateInvoiceSettingsResponse.parse(formatSettings(updated)));

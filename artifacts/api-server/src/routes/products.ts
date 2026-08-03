@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike } from "drizzle-orm";
+import { eq, ilike, and } from "drizzle-orm";
 import { db, productsTable } from "@workspace/db";
 import {
   ListProductsQueryParams,
@@ -13,30 +13,28 @@ import {
   UpdateProductResponse,
   DeleteProductParams,
 } from "@workspace/api-zod";
+import { getCompanyId } from "../lib/company-context";
 
 const router: IRouter = Router();
 
 router.get("/products", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const query = ListProductsQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
 
-  let rows;
+  const conditions = [eq(productsTable.companyId, companyId)];
   if (query.data.search) {
     const term = `%${query.data.search}%`;
-    rows = await db
-      .select()
-      .from(productsTable)
-      .where(ilike(productsTable.name, term))
-      .orderBy(productsTable.name);
-  } else {
-    rows = await db
-      .select()
-      .from(productsTable)
-      .orderBy(productsTable.name);
+    conditions.push(ilike(productsTable.name, term));
   }
+  const rows = await db
+    .select()
+    .from(productsTable)
+    .where(and(...conditions))
+    .orderBy(productsTable.name);
 
   res.json(
     ListProductsResponse.parse(
@@ -50,6 +48,7 @@ router.get("/products", async (req, res): Promise<void> => {
 });
 
 router.post("/products", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const parsed = CreateProductBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -58,7 +57,7 @@ router.post("/products", async (req, res): Promise<void> => {
 
   const [row] = await db
     .insert(productsTable)
-    .values({ ...parsed.data, unitPrice: String(parsed.data.unitPrice) })
+    .values({ ...parsed.data, companyId, unitPrice: String(parsed.data.unitPrice) })
     .returning();
 
   res.status(201).json(
@@ -71,6 +70,7 @@ router.post("/products", async (req, res): Promise<void> => {
 });
 
 router.get("/products/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = GetProductParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -80,7 +80,10 @@ router.get("/products/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .select()
     .from(productsTable)
-    .where(eq(productsTable.id, params.data.id));
+    .where(and(
+      eq(productsTable.id, params.data.id),
+      eq(productsTable.companyId, companyId),
+    ));
 
   if (!row) {
     res.status(404).json({ error: "Product not found" });
@@ -97,6 +100,7 @@ router.get("/products/:id", async (req, res): Promise<void> => {
 });
 
 router.patch("/products/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = UpdateProductParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -117,7 +121,10 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .update(productsTable)
     .set(updateData)
-    .where(eq(productsTable.id, params.data.id))
+    .where(and(
+      eq(productsTable.id, params.data.id),
+      eq(productsTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {
@@ -135,6 +142,7 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/products/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = DeleteProductParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -143,7 +151,10 @@ router.delete("/products/:id", async (req, res): Promise<void> => {
 
   const [row] = await db
     .delete(productsTable)
-    .where(eq(productsTable.id, params.data.id))
+    .where(and(
+      eq(productsTable.id, params.data.id),
+      eq(productsTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {

@@ -6,6 +6,7 @@ import {
   customersTable,
   lineItemsTable,
   invoiceSettingsTable,
+  productsTable,
 } from "@workspace/db";
 import {
   ListInvoicesQueryParams,
@@ -33,6 +34,7 @@ import {
   UpdateLineItemResponse,
   DeleteLineItemParams,
 } from "@workspace/api-zod";
+import { getCompanyId } from "../lib/company-context";
 
 const router: IRouter = Router();
 
@@ -65,7 +67,7 @@ function formatInvoiceRow(r: {
   };
 }
 
-async function recalcInvoiceTotals(invoiceId: number): Promise<void> {
+async function recalcInvoiceTotals(invoiceId: number, companyId?: number): Promise<void> {
   const items = await db
     .select()
     .from(lineItemsTable)
@@ -79,7 +81,10 @@ async function recalcInvoiceTotals(invoiceId: number): Promise<void> {
   const [inv] = await db
     .select({ taxRate: invoicesTable.taxRate })
     .from(invoicesTable)
-    .where(eq(invoicesTable.id, invoiceId));
+    .where(and(
+      eq(invoicesTable.id, invoiceId),
+      ...(companyId === undefined ? [] : [eq(invoicesTable.companyId, companyId)]),
+    ));
 
   const taxRate = inv ? Number(inv.taxRate) : 0;
   const taxAmount = subtotal * (taxRate / 100);
@@ -96,18 +101,53 @@ async function recalcInvoiceTotals(invoiceId: number): Promise<void> {
     .where(eq(invoicesTable.id, invoiceId));
 }
 
+async function invoiceBelongsToCompany(invoiceId: number, companyId: number): Promise<boolean> {
+  const [invoice] = await db
+    .select({ id: invoicesTable.id })
+    .from(invoicesTable)
+    .where(and(
+      eq(invoicesTable.id, invoiceId),
+      eq(invoicesTable.companyId, companyId),
+    ));
+  return Boolean(invoice);
+}
+
+async function customerBelongsToCompany(customerId: number, companyId: number): Promise<boolean> {
+  const [customer] = await db
+    .select({ id: customersTable.id })
+    .from(customersTable)
+    .where(and(
+      eq(customersTable.id, customerId),
+      eq(customersTable.companyId, companyId),
+    ));
+  return Boolean(customer);
+}
+
+async function productBelongsToCompany(productId: number | undefined, companyId: number): Promise<boolean> {
+  if (productId === undefined) return true;
+  const [product] = await db
+    .select({ id: productsTable.id })
+    .from(productsTable)
+    .where(and(
+      eq(productsTable.id, productId),
+      eq(productsTable.companyId, companyId),
+    ));
+  return Boolean(product);
+}
+
 // Generate sequential invoice number
-async function nextInvoiceNumber(): Promise<string> {
+async function nextInvoiceNumber(companyId: number): Promise<string> {
   const [last] = await db
     .select({ invoiceNumber: invoicesTable.invoiceNumber })
     .from(invoicesTable)
+    .where(eq(invoicesTable.companyId, companyId))
     .orderBy(desc(invoicesTable.id))
     .limit(1);
 
   const [settings] = await db
     .select({ invoicePrefix: invoiceSettingsTable.invoicePrefix })
     .from(invoiceSettingsTable)
-    .where(eq(invoiceSettingsTable.id, 1));
+    .where(eq(invoiceSettingsTable.companyId, companyId));
   const prefix = settings?.invoicePrefix || "INV";
 
   if (!last) return `${prefix}-0001`;
@@ -131,7 +171,8 @@ function splitInvoiceNumber(invoiceNumber: string): { prefix: string; number: st
 
 // ── Invoice Summary / Dashboard ──────────────────────────────────────────────
 
-router.get("/invoices/summary", async (_req, res): Promise<void> => {
+router.get("/invoices/summary", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const [summary] = await db
     .select({
       totalInvoiced: sql<string>`COALESCE(SUM(${invoicesTable.total}), 0)`,
@@ -140,11 +181,13 @@ router.get("/invoices/summary", async (_req, res): Promise<void> => {
       totalOverdue: sql<string>`COALESCE(SUM(CASE WHEN ${invoicesTable.status} = 'overdue' THEN ${invoicesTable.total} ELSE 0 END), 0)`,
       invoiceCount: sql<number>`COUNT(*)::int`,
     })
-    .from(invoicesTable);
+    .from(invoicesTable)
+    .where(eq(invoicesTable.companyId, companyId));
 
   const [{ customerCount }] = await db
     .select({ customerCount: sql<number>`COUNT(*)::int` })
-    .from(customersTable);
+    .from(customersTable)
+    .where(eq(customersTable.companyId, companyId));
 
   res.json(
     GetInvoiceSummaryResponse.parse({
@@ -160,7 +203,8 @@ router.get("/invoices/summary", async (_req, res): Promise<void> => {
 
 // ── Recent Invoices ───────────────────────────────────────────────────────────
 
-router.get("/invoices/recent", async (_req, res): Promise<void> => {
+router.get("/invoices/recent", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const rows = await db
     .select({
       id: invoicesTable.id,
@@ -181,6 +225,10 @@ router.get("/invoices/recent", async (_req, res): Promise<void> => {
     })
     .from(invoicesTable)
     .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
+    .where(and(
+      eq(invoicesTable.companyId, companyId),
+      eq(customersTable.companyId, companyId),
+    ))
     .orderBy(desc(invoicesTable.createdAt))
     .limit(10);
 
@@ -190,13 +238,17 @@ router.get("/invoices/recent", async (_req, res): Promise<void> => {
 // ── Invoice List ──────────────────────────────────────────────────────────────
 
 router.get("/invoices", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const query = ListInvoicesQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
 
-  const conditions = [];
+  const conditions = [
+    eq(invoicesTable.companyId, companyId),
+    eq(customersTable.companyId, companyId),
+  ];
   if (query.data.status) {
     conditions.push(eq(invoicesTable.status, query.data.status));
   }
@@ -239,18 +291,25 @@ router.get("/invoices", async (req, res): Promise<void> => {
 // ── Create Invoice ────────────────────────────────────────────────────────────
 
 router.post("/invoices", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const parsed = CreateInvoiceBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
 
-  const invoiceNumber = await nextInvoiceNumber();
+  if (!(await customerBelongsToCompany(parsed.data.customerId, companyId))) {
+    res.status(400).json({ error: "Customer does not belong to the selected company" });
+    return;
+  }
+
+  const invoiceNumber = await nextInvoiceNumber(companyId);
   const taxRate = parsed.data.taxRate ?? 0;
 
   const [row] = await db
     .insert(invoicesTable)
     .values({
+      companyId,
       invoiceNumber,
       customerId: parsed.data.customerId,
       status: parsed.data.status ?? "draft",
@@ -280,6 +339,7 @@ router.post("/invoices", async (req, res): Promise<void> => {
 // ── Get Invoice Detail ────────────────────────────────────────────────────────
 
 router.get("/invoices/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = GetInvoiceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -306,7 +366,11 @@ router.get("/invoices/:id", async (req, res): Promise<void> => {
     })
     .from(invoicesTable)
     .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
-    .where(eq(invoicesTable.id, params.data.id));
+    .where(and(
+      eq(invoicesTable.id, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+      eq(customersTable.companyId, companyId),
+    ));
 
   if (!row) {
     res.status(404).json({ error: "Invoice not found" });
@@ -334,6 +398,7 @@ router.get("/invoices/:id", async (req, res): Promise<void> => {
 // ── Update Invoice ────────────────────────────────────────────────────────────
 
 router.patch("/invoices/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = UpdateInvoiceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -351,7 +416,10 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
     const [current] = await db
       .select({ invoiceNumber: invoicesTable.invoiceNumber })
       .from(invoicesTable)
-      .where(eq(invoicesTable.id, params.data.id));
+      .where(and(
+        eq(invoicesTable.id, params.data.id),
+        eq(invoicesTable.companyId, companyId),
+      ));
 
     if (!current) {
       res.status(404).json({ error: "Invoice not found" });
@@ -369,7 +437,13 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
 
     updateData.invoiceNumber = `${prefix}-${number}`;
   }
-  if (parsed.data.customerId !== undefined) updateData.customerId = parsed.data.customerId;
+  if (parsed.data.customerId !== undefined) {
+    if (!(await customerBelongsToCompany(parsed.data.customerId, companyId))) {
+      res.status(400).json({ error: "Customer does not belong to the selected company" });
+      return;
+    }
+    updateData.customerId = parsed.data.customerId;
+  }
   if (parsed.data.issueDate !== undefined) updateData.issueDate = parsed.data.issueDate;
   if (parsed.data.dueDate !== undefined) updateData.dueDate = parsed.data.dueDate;
   if (parsed.data.notes !== undefined) updateData.notes = parsed.data.notes;
@@ -380,7 +454,10 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
   const [updated] = await db
     .update(invoicesTable)
     .set(updateData)
-    .where(eq(invoicesTable.id, params.data.id))
+    .where(and(
+      eq(invoicesTable.id, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+    ))
     .returning();
 
   if (!updated) {
@@ -409,7 +486,10 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
       updatedAt: invoicesTable.updatedAt,
     })
     .from(invoicesTable)
-    .where(eq(invoicesTable.id, params.data.id));
+    .where(and(
+      eq(invoicesTable.id, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+    ));
 
   res.json(
     UpdateInvoiceResponse.parse({
@@ -427,6 +507,7 @@ router.patch("/invoices/:id", async (req, res): Promise<void> => {
 // ── Update Invoice Status ─────────────────────────────────────────────────────
 
 router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = UpdateInvoiceStatusParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -442,7 +523,10 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
   const [row] = await db
     .update(invoicesTable)
     .set({ status: parsed.data.status, updatedAt: new Date() })
-    .where(eq(invoicesTable.id, params.data.id))
+    .where(and(
+      eq(invoicesTable.id, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {
@@ -466,6 +550,7 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
 // ── Delete Invoice ────────────────────────────────────────────────────────────
 
 router.delete("/invoices/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = DeleteInvoiceParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -474,7 +559,10 @@ router.delete("/invoices/:id", async (req, res): Promise<void> => {
 
   const [row] = await db
     .delete(invoicesTable)
-    .where(eq(invoicesTable.id, params.data.id))
+    .where(and(
+      eq(invoicesTable.id, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {
@@ -488,9 +576,15 @@ router.delete("/invoices/:id", async (req, res): Promise<void> => {
 // ── Line Items ────────────────────────────────────────────────────────────────
 
 router.get("/invoices/:invoiceId/line-items", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = ListLineItemsParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  if (!(await invoiceBelongsToCompany(params.data.invoiceId, companyId))) {
+    res.status(404).json({ error: "Invoice not found" });
     return;
   }
 
@@ -512,15 +606,26 @@ router.get("/invoices/:invoiceId/line-items", async (req, res): Promise<void> =>
 });
 
 router.post("/invoices/:invoiceId/line-items", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = CreateLineItemParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  if (!(await invoiceBelongsToCompany(params.data.invoiceId, companyId))) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+
   const parsed = CreateLineItemBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (!(await productBelongsToCompany(parsed.data.productId, companyId))) {
+    res.status(400).json({ error: "Product does not belong to the selected company" });
     return;
   }
 
@@ -538,7 +643,7 @@ router.post("/invoices/:invoiceId/line-items", async (req, res): Promise<void> =
     })
     .returning();
 
-  await recalcInvoiceTotals(params.data.invoiceId);
+  await recalcInvoiceTotals(params.data.invoiceId, companyId);
 
   res.status(201).json(
     CreateLineItemResponse.parse({
@@ -551,15 +656,26 @@ router.post("/invoices/:invoiceId/line-items", async (req, res): Promise<void> =
 });
 
 router.patch("/invoices/:invoiceId/line-items/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = UpdateLineItemParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
 
+  if (!(await invoiceBelongsToCompany(params.data.invoiceId, companyId))) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+
   const parsed = UpdateLineItemBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  if (!(await productBelongsToCompany(parsed.data.productId, companyId))) {
+    res.status(400).json({ error: "Product does not belong to the selected company" });
     return;
   }
 
@@ -602,7 +718,7 @@ router.patch("/invoices/:invoiceId/line-items/:id", async (req, res): Promise<vo
     )
     .returning();
 
-  await recalcInvoiceTotals(params.data.invoiceId);
+  await recalcInvoiceTotals(params.data.invoiceId, companyId);
 
   res.json(
     UpdateLineItemResponse.parse({
@@ -615,9 +731,15 @@ router.patch("/invoices/:invoiceId/line-items/:id", async (req, res): Promise<vo
 });
 
 router.delete("/invoices/:invoiceId/line-items/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = DeleteLineItemParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  if (!(await invoiceBelongsToCompany(params.data.invoiceId, companyId))) {
+    res.status(404).json({ error: "Invoice not found" });
     return;
   }
 
@@ -636,7 +758,7 @@ router.delete("/invoices/:invoiceId/line-items/:id", async (req, res): Promise<v
     return;
   }
 
-  await recalcInvoiceTotals(params.data.invoiceId);
+  await recalcInvoiceTotals(params.data.invoiceId, companyId);
   res.sendStatus(204);
 });
 

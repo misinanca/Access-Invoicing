@@ -6,7 +6,13 @@
  * OpenAPI spec version: 0.1.0
  */
 export interface HealthStatus {
-  status: string;
+  status?: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
+  createdAt: string;
 }
 
 export interface ErrorResponse {

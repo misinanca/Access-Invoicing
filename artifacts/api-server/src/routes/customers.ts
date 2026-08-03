@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, ilike, or, desc } from "drizzle-orm";
+import { eq, ilike, or, desc, and } from "drizzle-orm";
 import { db, customersTable } from "@workspace/db";
 import {
   ListCustomersQueryParams,
@@ -16,35 +16,31 @@ import {
   GetCustomerInvoicesResponse,
 } from "@workspace/api-zod";
 import { invoicesTable } from "@workspace/db";
+import { getCompanyId } from "../lib/company-context";
 
 const router: IRouter = Router();
 
 router.get("/customers", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const query = ListCustomersQueryParams.safeParse(req.query);
   if (!query.success) {
     res.status(400).json({ error: query.error.message });
     return;
   }
 
-  let rows;
+  const conditions = [eq(customersTable.companyId, companyId)];
   if (query.data.search) {
     const term = `%${query.data.search}%`;
-    rows = await db
-      .select()
-      .from(customersTable)
-      .where(
-        or(
-          ilike(customersTable.name, term),
-          ilike(customersTable.email, term)
-        )
-      )
-      .orderBy(customersTable.name);
-  } else {
-    rows = await db
-      .select()
-      .from(customersTable)
-      .orderBy(customersTable.name);
+    conditions.push(or(
+      ilike(customersTable.name, term),
+      ilike(customersTable.email, term),
+    )!);
   }
+  const rows = await db
+    .select()
+    .from(customersTable)
+    .where(and(...conditions))
+    .orderBy(customersTable.name);
 
   res.json(
     ListCustomersResponse.parse(
@@ -58,6 +54,7 @@ router.get("/customers", async (req, res): Promise<void> => {
 });
 
 router.post("/customers", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -68,6 +65,7 @@ router.post("/customers", async (req, res): Promise<void> => {
     .insert(customersTable)
     .values({
       ...parsed.data,
+      companyId,
       defaultRent:
         parsed.data.defaultRent === undefined
           ? undefined
@@ -85,6 +83,7 @@ router.post("/customers", async (req, res): Promise<void> => {
 });
 
 router.get("/customers/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = GetCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -94,7 +93,10 @@ router.get("/customers/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .select()
     .from(customersTable)
-    .where(eq(customersTable.id, params.data.id));
+    .where(and(
+      eq(customersTable.id, params.data.id),
+      eq(customersTable.companyId, companyId),
+    ));
 
   if (!row) {
     res.status(404).json({ error: "Customer not found" });
@@ -111,6 +113,7 @@ router.get("/customers/:id", async (req, res): Promise<void> => {
 });
 
 router.patch("/customers/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = UpdateCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -139,7 +142,10 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
   const [row] = await db
     .update(customersTable)
     .set(updateData)
-    .where(eq(customersTable.id, params.data.id))
+    .where(and(
+      eq(customersTable.id, params.data.id),
+      eq(customersTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {
@@ -157,6 +163,7 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
 });
 
 router.delete("/customers/:id", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = DeleteCustomerParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -165,7 +172,10 @@ router.delete("/customers/:id", async (req, res): Promise<void> => {
 
   const [row] = await db
     .delete(customersTable)
-    .where(eq(customersTable.id, params.data.id))
+    .where(and(
+      eq(customersTable.id, params.data.id),
+      eq(customersTable.companyId, companyId),
+    ))
     .returning();
 
   if (!row) {
@@ -177,6 +187,7 @@ router.delete("/customers/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/customers/:id/invoices", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
   const params = GetCustomerInvoicesParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
@@ -202,7 +213,11 @@ router.get("/customers/:id/invoices", async (req, res): Promise<void> => {
     })
     .from(invoicesTable)
     .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
-    .where(eq(invoicesTable.customerId, params.data.id))
+    .where(and(
+      eq(invoicesTable.customerId, params.data.id),
+      eq(invoicesTable.companyId, companyId),
+      eq(customersTable.companyId, companyId),
+    ))
     .orderBy(desc(invoicesTable.createdAt));
 
   res.json(

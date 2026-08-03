@@ -1,9 +1,14 @@
-import { integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { companiesTable } from "./companies";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const invoiceSettingsTable = pgTable("invoice_settings", {
   id: integer("id").primaryKey().default(1),
+  companyId: integer("company_id")
+    .notNull()
+    .default(1)
+    .references(() => companiesTable.id, { onDelete: "cascade" }),
   invoicePrefix: text("invoice_prefix").notNull().default("INV"),
   invoiceTitle: text("invoice_title").notNull().default("FACTURĂ DE CHIRIE"),
   issuerName: text("issuer_name").notNull().default("Administrare imobile"),
@@ -15,7 +20,9 @@ export const invoiceSettingsTable = pgTable("invoice_settings", {
     .notNull()
     .default([]),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  companyIdUnique: uniqueIndex("invoice_settings_company_id_unique").on(table.companyId),
+}));
 
 export const insertInvoiceSettingsSchema = createInsertSchema(invoiceSettingsTable).omit({
   id: true,

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './company';
 export * from './customer';
 export * from './customerInput';
 export * from './customerUpdate';

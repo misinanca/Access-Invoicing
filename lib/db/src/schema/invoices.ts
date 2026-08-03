@@ -6,14 +6,20 @@ import {
   timestamp,
   integer,
   date,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { customersTable } from "./customers";
+import { companiesTable } from "./companies";
 
 export const invoicesTable = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  invoiceNumber: text("invoice_number").notNull().unique(),
+  companyId: integer("company_id")
+    .notNull()
+    .default(1)
+    .references(() => companiesTable.id, { onDelete: "restrict" }),
+  invoiceNumber: text("invoice_number").notNull(),
   customerId: integer("customer_id")
     .notNull()
     .references(() => customersTable.id, { onDelete: "restrict" }),
@@ -27,7 +33,12 @@ export const invoicesTable = pgTable("invoices", {
   total: numeric("total", { precision: 12, scale: 2 }).notNull().default("0"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  companyInvoiceNumberUnique: uniqueIndex("invoices_company_invoice_number_unique").on(
+    table.companyId,
+    table.invoiceNumber,
+  ),
+}));
 
 export const insertInvoiceSchema = createInsertSchema(invoicesTable).omit({
   id: true,

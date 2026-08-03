@@ -349,6 +349,13 @@ export async function customFetch<T = unknown>(
     headers.set("accept", DEFAULT_JSON_ACCEPT);
   }
 
+  if (!headers.has("x-company-id") && typeof window !== "undefined") {
+    const selectedCompanyId = window.localStorage.getItem("invoice-db-company-id");
+    if (selectedCompanyId && /^\d+$/.test(selectedCompanyId)) {
+      headers.set("x-company-id", selectedCompanyId);
+    }
+  }
+
   // Attach bearer token when an auth getter is configured and no
   // Authorization header has been explicitly provided.
   if (_authTokenGetter && !headers.has("authorization")) {
