@@ -128,7 +128,7 @@ export async function generateInvoicePdf(
     <section class="line-items">
       <div class="section-label">${escapeHtml(section.label)}</div>
       <table>
-        <thead><tr><th>Descriere</th><th>Cant.</th><th>Preț unitar</th><th>Valoare</th></tr></thead>
+        <thead><tr><th>Descriere</th><th>Cant.</th><th>Preț unitar (RON)</th><th>Valoare (RON)</th></tr></thead>
         <tbody>${lineItemsHtml}</tbody>
       </table>
     </section>`;
@@ -136,9 +136,9 @@ export async function generateInvoicePdf(
     <section class="totals-section">
       <div class="section-label">${escapeHtml(section.label)}</div>
       <div class="totals">
-        <div><span>Subtotal</span><span>${escapeHtml(formatInvoiceCurrency(invoice.subtotal))}</span></div>
-        <div><span>TVA (${escapeHtml(String(invoice.taxRate))}%)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.taxAmount))}</span></div>
-        <div class="total"><span>Total de plată</span><span>${escapeHtml(formatInvoiceCurrency(invoice.total))}</span></div>
+        <div><span>Subtotal (RON)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.subtotal))}</span></div>
+        <div><span>TVA (${escapeHtml(String(invoice.taxRate))}%) (RON)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.taxAmount))}</span></div>
+        <div class="total"><span>Total de plată (RON)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.total))}</span></div>
       </div>
     </section>`;
   const notesSectionHtml = (section: { label: string }) =>

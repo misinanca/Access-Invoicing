@@ -266,8 +266,8 @@ export default function InvoiceDetail() {
                 <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
                   <th className="pb-3 font-semibold">Descriere</th>
                   <th className="w-20 pb-3 text-right font-semibold">Cant.</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Valoare</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar (RON)</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Valoare (RON)</th>
                 </tr>
               </thead>
               <tbody>
@@ -292,9 +292,9 @@ export default function InvoiceDetail() {
           <section key={section.id} className="border-t border-slate-200 py-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
             <div className="ml-auto max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-mono">{formatInvoiceCurrency(subtotal)}</span></div>
-              <div className="flex justify-between text-slate-600"><span>TVA ({taxRate}%)</span><span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span></div>
-              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950"><span>Total de plată</span><span className="font-mono">{formatInvoiceCurrency(total)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>Subtotal (RON)</span><span className="font-mono">{formatInvoiceCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>TVA ({taxRate}%) (RON)</span><span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span></div>
+              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950"><span>Total de plată (RON)</span><span className="font-mono">{formatInvoiceCurrency(total)}</span></div>
             </div>
           </section>
         );
