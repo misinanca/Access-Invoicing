@@ -59,6 +59,12 @@ export const UpdateCompanyResponse = zod.object({
 /**
  * @summary Get invoice settings
  */
+export const getInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
+
+export const getInvoiceSettingsResponseLayoutSectionsItemLabelMax = 120;
+
+
+
 export const GetInvoiceSettingsResponse = zod.object({
   "invoicePrefix": zod.string(),
   "invoiceTitle": zod.string(),
@@ -70,6 +76,13 @@ export const GetInvoiceSettingsResponse = zod.object({
   "label": zod.string(),
   "text": zod.string()
 })),
+  "layoutSections": zod.array(zod.object({
+  "id": zod.string().min(1).max(getInvoiceSettingsResponseLayoutSectionsItemIdMax),
+  "type": zod.enum(['header', 'customer', 'customFields', 'lineItems', 'totals', 'notes', 'footer', 'custom']),
+  "label": zod.string().min(1).max(getInvoiceSettingsResponseLayoutSectionsItemLabelMax),
+  "visible": zod.boolean(),
+  "content": zod.string().optional()
+})),
   "updatedAt": zod.string()
 })
 
@@ -77,6 +90,10 @@ export const GetInvoiceSettingsResponse = zod.object({
 /**
  * @summary Update invoice settings
  */
+
+export const updateInvoiceSettingsBodyLayoutSectionsItemIdMax = 80;
+
+export const updateInvoiceSettingsBodyLayoutSectionsItemLabelMax = 120;
 
 
 
@@ -90,8 +107,21 @@ export const UpdateInvoiceSettingsBody = zod.object({
   "customFields": zod.array(zod.object({
   "label": zod.string(),
   "text": zod.string()
+})).optional(),
+  "layoutSections": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateInvoiceSettingsBodyLayoutSectionsItemIdMax),
+  "type": zod.enum(['header', 'customer', 'customFields', 'lineItems', 'totals', 'notes', 'footer', 'custom']),
+  "label": zod.string().min(1).max(updateInvoiceSettingsBodyLayoutSectionsItemLabelMax),
+  "visible": zod.boolean(),
+  "content": zod.string().optional()
 })).optional()
 })
+
+export const updateInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
+
+export const updateInvoiceSettingsResponseLayoutSectionsItemLabelMax = 120;
+
+
 
 export const UpdateInvoiceSettingsResponse = zod.object({
   "invoicePrefix": zod.string(),
@@ -103,6 +133,13 @@ export const UpdateInvoiceSettingsResponse = zod.object({
   "customFields": zod.array(zod.object({
   "label": zod.string(),
   "text": zod.string()
+})),
+  "layoutSections": zod.array(zod.object({
+  "id": zod.string().min(1).max(updateInvoiceSettingsResponseLayoutSectionsItemIdMax),
+  "type": zod.enum(['header', 'customer', 'customFields', 'lineItems', 'totals', 'notes', 'footer', 'custom']),
+  "label": zod.string().min(1).max(updateInvoiceSettingsResponseLayoutSectionsItemLabelMax),
+  "visible": zod.boolean(),
+  "content": zod.string().optional()
 })),
   "updatedAt": zod.string()
 })

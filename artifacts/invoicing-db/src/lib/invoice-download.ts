@@ -1,6 +1,7 @@
 import type { InvoiceDetail, InvoiceSettings } from '@workspace/api-client-react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { getInvoiceLayout } from '@/lib/invoice-layout';
 
 function escapeHtml(value: string): string {
   return value
@@ -64,19 +65,16 @@ export async function generateInvoicePdf(
       .join(' - ') || 'factura';
   const filename = `${safeDownloadPart(invoice.invoiceNumber)} - ${safeDownloadPart(description)}.pdf`;
   const customFields = invoiceSettings?.customFields ?? [];
-  const customFieldsHtml = customFields.length
-    ? `
-        <section class="custom-fields">
-          ${customFields
-            .map(
-              (field) => `
-                <div>
-                  <div class="label">${escapeHtml(field.label)}</div>
-                  <div>${escapeHtml(field.text).replace(/\n/g, '<br>')}</div>
-                </div>`,
-            )
-            .join('')}
-        </section>`
+  const customFieldsContentHtml = customFields.length
+    ? customFields
+        .map(
+          (field) => `
+            <div>
+              <div class="label">${escapeHtml(field.label)}</div>
+              <div>${escapeHtml(field.text).replace(/\n/g, '<br>')}</div>
+            </div>`,
+        )
+        .join('')
     : '';
   const lineItemsHtml = invoice.lineItems.length
     ? invoice.lineItems
@@ -97,9 +95,85 @@ export async function generateInvoicePdf(
   const notesHtml = invoice.notes
     ? `<div class="notes">${escapeHtml(invoice.notes).replace(/\n/g, '<br>')}</div>`
     : '';
-  const footerHtml = invoiceSettings?.footerText
-    ? `<div class="footer">${escapeHtml(invoiceSettings.footerText).replace(/\n/g, '<br>')}</div>`
-    : '';
+  const headerHtml = (section: { label: string }) => `
+    <header class="header">
+      <div>
+        ${logoHtml}
+        <div class="eyebrow">${escapeHtml(invoiceSettings?.invoiceTitle || section.label)}</div>
+        <h1>${escapeHtml(invoice.invoiceNumber)}</h1>
+      </div>
+      <div class="issuer">
+        <strong>${escapeHtml(invoiceSettings?.issuerName || 'InvoiceDB')}</strong>
+        ${escapeHtml(invoiceSettings?.issuerAddress || 'Administrare facturi').replace(/\n/g, '<br>')}
+      </div>
+    </header>`;
+  const customerHtml = (section: { label: string }) => `
+    <section class="meta">
+      <div>
+        <div class="label">${escapeHtml(section.label)}</div>
+        <div class="customer">${escapeHtml(invoice.customerName)}</div>
+        <div class="muted">${escapeHtml(invoice.customerEmail || 'Email necompletat')}</div>
+      </div>
+      <div class="dates">
+        <div><span>Data emiterii</span><strong>${escapeHtml(formatInvoiceDate(invoice.issueDate))}</strong></div>
+        <div><span>Data scadenței</span><strong>${escapeHtml(formatInvoiceDate(invoice.dueDate))}</strong></div>
+        <div><span>Stare</span><strong>${escapeHtml(translateInvoiceStatus(invoice.status))}</strong></div>
+      </div>
+    </section>`;
+  const customFieldsHtml = (section: { label: string }) =>
+    customFieldsContentHtml
+      ? `<section class="custom-fields"><div class="section-label">${escapeHtml(section.label)}</div>${customFieldsContentHtml}</section>`
+      : '';
+  const lineItemsSectionHtml = (section: { label: string }) => `
+    <section class="line-items">
+      <div class="section-label">${escapeHtml(section.label)}</div>
+      <table>
+        <thead><tr><th>Descriere</th><th>Cant.</th><th>Preț unitar</th><th>Valoare</th></tr></thead>
+        <tbody>${lineItemsHtml}</tbody>
+      </table>
+    </section>`;
+  const totalsSectionHtml = (section: { label: string }) => `
+    <section class="totals-section">
+      <div class="section-label">${escapeHtml(section.label)}</div>
+      <div class="totals">
+        <div><span>Subtotal</span><span>${escapeHtml(formatInvoiceCurrency(invoice.subtotal))}</span></div>
+        <div><span>TVA (${escapeHtml(String(invoice.taxRate))}%)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.taxAmount))}</span></div>
+        <div class="total"><span>Total de plată</span><span>${escapeHtml(formatInvoiceCurrency(invoice.total))}</span></div>
+      </div>
+    </section>`;
+  const notesSectionHtml = (section: { label: string }) =>
+    notesHtml
+      ? `<section class="notes"><div class="section-label">${escapeHtml(section.label)}</div>${escapeHtml(invoice.notes || '').replace(/\n/g, '<br>')}</section>`
+      : '';
+  const footerSectionHtml = (section: { label: string }) =>
+    invoiceSettings?.footerText
+      ? `<footer class="footer"><div class="section-label">${escapeHtml(section.label)}</div>${escapeHtml(invoiceSettings.footerText).replace(/\n/g, '<br>')}</footer>`
+      : '';
+  const layoutHtml = getInvoiceLayout(invoiceSettings)
+    .filter((section) => section.visible)
+    .map((section) => {
+      switch (section.type) {
+        case 'header':
+          return headerHtml(section);
+        case 'customer':
+          return customerHtml(section);
+        case 'customFields':
+          return customFieldsHtml(section);
+        case 'lineItems':
+          return lineItemsSectionHtml(section);
+        case 'totals':
+          return totalsSectionHtml(section);
+        case 'notes':
+          return notesSectionHtml(section);
+        case 'footer':
+          return footerSectionHtml(section);
+        case 'custom':
+          return section.content
+            ? `<section class="custom-section"><div class="section-label">${escapeHtml(section.label)}</div>${escapeHtml(section.content).replace(/\n/g, '<br>')}</section>`
+            : '';
+      }
+    })
+    .join('');
   const documentHtml = `<!doctype html>
 <html lang="ro">
   <head>
@@ -122,61 +196,30 @@ export async function generateInvoicePdf(
       .dates { display: grid; gap: 8px; text-align: right; }
       .dates div { display: flex; justify-content: flex-end; gap: 20px; }
       .dates span:first-child { color: #64748b; }
-      .custom-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; border-bottom: 1px solid #e2e8f0; padding: 20px 0; font-size: 14px; }
+       .section-label { margin-bottom: 12px; color: #64748b; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+       .custom-fields { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; border-bottom: 1px solid #e2e8f0; padding: 20px 0; font-size: 14px; }
       .custom-fields .label { margin-bottom: 5px; }
-      table { width: 100%; border-collapse: collapse; margin-top: 28px; font-size: 14px; }
+       .line-items { padding: 28px 0 0; }
+       table { width: 100%; border-collapse: collapse; font-size: 14px; }
       th { border-bottom: 2px solid #0f172a; padding: 0 0 12px; color: #64748b; font-size: 11px; letter-spacing: .1em; text-align: left; text-transform: uppercase; }
       th:nth-child(n+2), td.number { text-align: right; }
       td { border-bottom: 1px solid #e2e8f0; padding: 16px 0; }
       td:first-child { padding-right: 16px; font-weight: 700; }
       .strong { color: #0f172a; font-weight: 700; }
       .empty { color: #64748b; padding: 24px 0; text-align: center; }
-      .totals { width: 280px; margin: 24px 0 0 auto; font-size: 14px; }
+       .totals-section { border-top: 1px solid #e2e8f0; padding: 20px 0 0; }
+       .totals { width: 280px; margin: 0 0 0 auto; font-size: 14px; }
       .totals div { display: flex; justify-content: space-between; gap: 20px; padding: 5px 0; }
       .total { border-top: 2px solid #0f172a; margin-top: 6px; padding-top: 12px !important; font-size: 16px; font-weight: 700; }
-      .notes, .footer { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 20px; color: #475569; font-size: 13px; white-space: pre-line; }
-      .footer { color: #64748b; font-size: 12px; }
+       .notes, .footer, .custom-section { border-top: 1px solid #e2e8f0; margin-top: 20px; padding-top: 20px; color: #475569; font-size: 13px; white-space: pre-line; }
+       .footer { color: #64748b; font-size: 12px; }
       @media print { body { padding: 0; background: white; } .document { max-width: none; padding: 0; } }
       @media (max-width: 640px) { body { padding: 16px; } .document { padding: 24px; } .header, .meta { grid-template-columns: 1fr; display: grid; } .issuer, .dates { text-align: left; } .dates div { justify-content: space-between; } .custom-fields { grid-template-columns: 1fr 1fr; } }
     </style>
   </head>
   <body>
     <main class="document">
-      <header class="header">
-        <div>
-          ${logoHtml}
-          <div class="eyebrow">${escapeHtml(invoiceSettings?.invoiceTitle || 'Document factură')}</div>
-          <h1>${escapeHtml(invoice.invoiceNumber)}</h1>
-        </div>
-        <div class="issuer">
-          <strong>${escapeHtml(invoiceSettings?.issuerName || 'InvoiceDB')}</strong>
-          ${escapeHtml(invoiceSettings?.issuerAddress || 'Administrare facturi').replace(/\n/g, '<br>')}
-        </div>
-      </header>
-      <section class="meta">
-        <div>
-          <div class="label">Client</div>
-          <div class="customer">${escapeHtml(invoice.customerName)}</div>
-          <div class="muted">${escapeHtml(invoice.customerEmail || 'Email necompletat')}</div>
-        </div>
-        <div class="dates">
-          <div><span>Data emiterii</span><strong>${escapeHtml(formatInvoiceDate(invoice.issueDate))}</strong></div>
-          <div><span>Data scadenței</span><strong>${escapeHtml(formatInvoiceDate(invoice.dueDate))}</strong></div>
-          <div><span>Stare</span><strong>${escapeHtml(translateInvoiceStatus(invoice.status))}</strong></div>
-        </div>
-      </section>
-      ${customFieldsHtml}
-      <table>
-        <thead><tr><th>Descriere</th><th>Cant.</th><th>Preț unitar</th><th>Valoare</th></tr></thead>
-        <tbody>${lineItemsHtml}</tbody>
-      </table>
-      <section class="totals">
-        <div><span>Subtotal</span><span>${escapeHtml(formatInvoiceCurrency(invoice.subtotal))}</span></div>
-        <div><span>TVA (${escapeHtml(String(invoice.taxRate))}%)</span><span>${escapeHtml(formatInvoiceCurrency(invoice.taxAmount))}</span></div>
-        <div class="total"><span>Total de plată</span><span>${escapeHtml(formatInvoiceCurrency(invoice.total))}</span></div>
-      </section>
-      ${notesHtml}
-      ${footerHtml}
+       ${layoutHtml}
     </main>
   </body>
 </html>`;

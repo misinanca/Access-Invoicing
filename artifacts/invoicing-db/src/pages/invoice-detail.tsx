@@ -31,7 +31,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { downloadInvoiceFile } from '@/lib/invoice-download';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import type { InvoiceStatus, LineItem } from '@workspace/api-client-react';
+import type { InvoiceLayoutSection, InvoiceStatus, LineItem } from '@workspace/api-client-react';
+import { getInvoiceLayout } from '@/lib/invoice-layout';
 
 function translateInvoiceStatus(status: InvoiceStatus): string {
   return {
@@ -49,7 +50,7 @@ export default function InvoiceDetail() {
   const { toast } = useToast();
 
   const invoiceId = Number(params.id);
-  const { data: invoice, isLoading } = useGetInvoice(invoiceId, {
+  const { data: invoice, isLoading, isError } = useGetInvoice(invoiceId, {
     query: { enabled: !!invoiceId, queryKey: getGetInvoiceQueryKey(invoiceId) },
   });
   const { data: invoiceSettings } = useGetInvoiceSettings();
@@ -183,6 +184,144 @@ export default function InvoiceDetail() {
     });
   };
 
+  const renderLayoutSection = (
+    section: InvoiceLayoutSection,
+    currentInvoice: NonNullable<typeof invoice>,
+  ) => {
+    if (!section.visible) return null;
+
+    switch (section.type) {
+      case 'header':
+        return (
+          <header key={section.id} className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-6">
+            <div>
+              {invoiceSettings?.logoUrl && (
+                <img
+                  src={invoiceSettings.logoUrl}
+                  alt="Logo companie"
+                  className="mb-4 max-h-[280px] max-w-[950px] object-contain object-left"
+                />
+              )}
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                {invoiceSettings?.invoiceTitle || section.label}
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
+                {currentInvoice.invoiceNumber}
+              </h1>
+            </div>
+            <div className="text-right text-sm">
+              <p className="font-semibold text-slate-950">
+                {invoiceSettings?.issuerName || 'InvoiceDB'}
+              </p>
+              <p className="mt-1 whitespace-pre-line text-slate-500">
+                {invoiceSettings?.issuerAddress || 'Administrare facturi'}
+              </p>
+            </div>
+          </header>
+        );
+      case 'customer':
+        return (
+          <section key={section.id} className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200 py-6 text-sm">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+              <p className="mt-3 text-base font-semibold text-slate-950">{currentInvoice.customerName}</p>
+              <p className="mt-1 text-slate-600">{currentInvoice.customerEmail || 'Email necompletat'}</p>
+            </div>
+            <div className="space-y-2 md:text-right">
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Data emiterii</span>
+                <span className="font-medium text-slate-950">{formatInvoiceDate(currentInvoice.issueDate)}</span>
+              </div>
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Data scadenței</span>
+                <span className="font-semibold text-slate-950">{formatInvoiceDate(currentInvoice.dueDate)}</span>
+              </div>
+              <div className="flex justify-between gap-5 md:justify-end">
+                <span className="text-slate-500">Stare</span>
+                <span className="font-medium text-slate-950">{translateInvoiceStatus(currentInvoice.status)}</span>
+              </div>
+            </div>
+          </section>
+        );
+      case 'customFields':
+        return invoiceSettings?.customFields.length ? (
+          <section key={section.id} className="border-b border-slate-200 py-5 text-sm">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+              {invoiceSettings.customFields.map((field) => (
+                <div key={`${field.label}-${field.text}`}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{field.label}</p>
+                  <p className="mt-1 whitespace-pre-line text-slate-950">{field.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null;
+      case 'lineItems':
+        return (
+          <section key={section.id} className="py-7">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
+                  <th className="pb-3 font-semibold">Descriere</th>
+                  <th className="w-20 pb-3 text-right font-semibold">Cant.</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar</th>
+                  <th className="w-32 pb-3 text-right font-semibold">Valoare</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentInvoice.lineItems.length === 0 ? (
+                  <tr><td colSpan={4} className="py-6 text-center text-slate-500">Nu există poziții</td></tr>
+                ) : (
+                  currentInvoice.lineItems.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-200">
+                      <td className="py-4 pr-4 font-medium text-slate-950">{item.description}</td>
+                      <td className="py-4 text-right font-mono text-slate-700">{item.quantity}</td>
+                      <td className="py-4 text-right font-mono text-slate-700">{formatInvoiceCurrency(item.unitPrice)}</td>
+                      <td className="py-4 text-right font-mono font-semibold text-slate-950">{formatInvoiceCurrency(item.amount)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+        );
+      case 'totals':
+        return (
+          <section key={section.id} className="border-t border-slate-200 py-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            <div className="ml-auto max-w-xs space-y-2 text-sm">
+              <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-mono">{formatInvoiceCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>TVA ({taxRate}%)</span><span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span></div>
+              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950"><span>Total de plată</span><span className="font-mono">{formatInvoiceCurrency(total)}</span></div>
+            </div>
+          </section>
+        );
+      case 'notes':
+        return currentInvoice.notes ? (
+          <section key={section.id} className="border-t border-slate-200 pt-5 text-sm text-slate-600 whitespace-pre-line">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            {currentInvoice.notes}
+          </section>
+        ) : null;
+      case 'footer':
+        return invoiceSettings?.footerText ? (
+          <footer key={section.id} className="mt-5 border-t border-slate-200 pt-5 text-xs text-slate-500 whitespace-pre-line">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            {invoiceSettings.footerText}
+          </footer>
+        ) : null;
+      case 'custom':
+        return section.content ? (
+          <section key={section.id} className="border-t border-slate-200 py-5 text-sm text-slate-600 whitespace-pre-line">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+            {section.content}
+          </section>
+        ) : null;
+    }
+  };
+
   if (isLoading) {
     return (
       <>
@@ -194,7 +333,7 @@ export default function InvoiceDetail() {
     );
   }
 
-  if (!invoice) {
+  if (isError || !invoice) {
     return (
       <>
         <PageHeader title="Factura nu a fost găsită" />
@@ -292,127 +431,7 @@ export default function InvoiceDetail() {
           className="bg-white border border-slate-200 rounded-lg p-8 shadow-sm print:border-0 print:p-0 print:shadow-none"
           data-testid="invoice-document-preview"
         >
-          <div className="flex items-start justify-between gap-8 border-b-2 border-slate-900 pb-6">
-            <div>
-              {invoiceSettings?.logoUrl && (
-                <img
-                  src={invoiceSettings.logoUrl}
-                  alt="Logo companie"
-                  className="mb-4 max-h-[280px] max-w-[950px] object-contain object-left"
-                />
-              )}
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                {invoiceSettings?.invoiceTitle || 'Document factură'}
-              </p>
-              <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
-                {invoice.invoiceNumber}
-              </h1>
-            </div>
-            <div className="text-right text-sm">
-              <p className="font-semibold text-slate-950">
-                {invoiceSettings?.issuerName || 'InvoiceDB'}
-              </p>
-              <p className="mt-1 whitespace-pre-line text-slate-500">
-                {invoiceSettings?.issuerAddress || 'Administrare facturi'}
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200 py-6 text-sm">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Client</p>
-              <p className="mt-3 text-base font-semibold text-slate-950">{invoice.customerName}</p>
-              <p className="mt-1 text-slate-600">{invoice.customerEmail || 'Email necompletat'}</p>
-            </div>
-            <div className="space-y-2 md:text-right">
-              <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Data emiterii</span>
-                <span className="font-medium text-slate-950">{formatInvoiceDate(invoice.issueDate)}</span>
-              </div>
-              <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Data scadenței</span>
-                <span className="font-semibold text-slate-950">{formatInvoiceDate(invoice.dueDate)}</span>
-              </div>
-              <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Stare</span>
-                <span className="font-medium text-slate-950">{translateInvoiceStatus(invoice.status)}</span>
-              </div>
-            </div>
-          </div>
-
-          {invoiceSettings?.customFields.length ? (
-            <div className="grid grid-cols-2 gap-4 border-b border-slate-200 py-5 text-sm md:grid-cols-3">
-              {invoiceSettings.customFields.map((field) => (
-                <div key={`${field.label}-${field.text}`}>
-                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                    {field.label}
-                  </p>
-                  <p className="mt-1 whitespace-pre-line text-slate-950">{field.text}</p>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div className="py-7">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
-                  <th className="pb-3 font-semibold">Descriere</th>
-                  <th className="w-20 pb-3 text-right font-semibold">Cant.</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Valoare</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoice.lineItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-6 text-center text-slate-500">
-                      Nu există poziții
-                    </td>
-                  </tr>
-                ) : (
-                  invoice.lineItems.map((item) => (
-                    <tr key={item.id} className="border-b border-slate-200">
-                      <td className="py-4 pr-4 font-medium text-slate-950">{item.description}</td>
-                      <td className="py-4 text-right font-mono text-slate-700">{item.quantity}</td>
-                      <td className="py-4 text-right font-mono text-slate-700">
-                        {formatInvoiceCurrency(item.unitPrice)}
-                      </td>
-                      <td className="py-4 text-right font-mono font-semibold text-slate-950">
-                        {formatInvoiceCurrency(item.amount)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-
-            <div className="ml-auto mt-6 max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal</span>
-                <span className="font-mono">{formatInvoiceCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>TVA ({taxRate}%)</span>
-                <span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span>
-              </div>
-              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950">
-                <span>Total de plată</span>
-                <span className="font-mono">{formatInvoiceCurrency(total)}</span>
-              </div>
-            </div>
-          </div>
-
-          {invoice.notes && (
-            <div className="border-t border-slate-200 pt-5 text-sm text-slate-600 whitespace-pre-line">
-              {invoice.notes}
-            </div>
-          )}
-          {invoiceSettings?.footerText && (
-            <p className="mt-5 border-t border-slate-200 pt-5 text-xs text-slate-500 whitespace-pre-line">
-              {invoiceSettings.footerText}
-            </p>
-          )}
+          {getInvoiceLayout(invoiceSettings).map((section) => renderLayoutSection(section, invoice))}
         </article>
 
         <div className="flex items-center justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 print:hidden">

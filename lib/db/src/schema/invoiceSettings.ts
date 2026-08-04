@@ -3,6 +3,22 @@ import { companiesTable } from "./companies";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export type InvoiceLayoutSection = {
+  id: string;
+  type:
+    | "header"
+    | "customer"
+    | "customFields"
+    | "lineItems"
+    | "totals"
+    | "notes"
+    | "footer"
+    | "custom";
+  label: string;
+  visible: boolean;
+  content?: string;
+};
+
 export const invoiceSettingsTable = pgTable("invoice_settings", {
   id: integer("id").primaryKey().default(1),
   companyId: integer("company_id")
@@ -17,6 +33,10 @@ export const invoiceSettingsTable = pgTable("invoice_settings", {
   logoUrl: text("logo_url"),
   customFields: jsonb("custom_fields")
     .$type<Array<{ label: string; text: string }>>()
+    .notNull()
+    .default([]),
+  layoutSections: jsonb("layout_sections")
+    .$type<InvoiceLayoutSection[]>()
     .notNull()
     .default([]),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

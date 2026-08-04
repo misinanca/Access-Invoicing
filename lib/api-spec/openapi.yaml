@@ -932,7 +932,7 @@ components:
 
     InvoiceSettings:
       type: object
-      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, updatedAt]
+      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, layoutSections, updatedAt]
       properties:
         invoicePrefix:
           type: string
@@ -950,6 +950,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InvoiceCustomField"
+        layoutSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLayoutSection"
         updatedAt:
           type: string
 
@@ -982,6 +986,30 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InvoiceCustomField"
+        layoutSections:
+          type: array
+          items:
+            $ref: "#/components/schemas/InvoiceLayoutSection"
+
+    InvoiceLayoutSection:
+      type: object
+      required: [id, type, label, visible]
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 80
+        type:
+          type: string
+          enum: [header, customer, customFields, lineItems, totals, notes, footer, custom]
+        label:
+          type: string
+          minLength: 1
+          maxLength: 120
+        visible:
+          type: boolean
+        content:
+          type: string
 
     InvoiceSummary:
       type: object

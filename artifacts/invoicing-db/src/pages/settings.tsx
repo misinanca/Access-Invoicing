@@ -5,9 +5,10 @@ import {
   useGetInvoiceSettings,
   useUpdateInvoiceSettings,
   type InvoiceCustomField,
+  type InvoiceLayoutSection,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ImagePlus, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, ImagePlus, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { DEFAULT_INVOICE_LAYOUT } from '@/lib/invoice-layout';
 
 const defaultFields: InvoiceCustomField[] = [];
 
@@ -32,6 +34,7 @@ export default function Settings() {
   const [logoUrl, setLogoUrl] = useState('');
   const [isReadingLogo, setIsReadingLogo] = useState(false);
   const [customFields, setCustomFields] = useState<InvoiceCustomField[]>(defaultFields);
+  const [layoutSections, setLayoutSections] = useState<InvoiceLayoutSection[]>(DEFAULT_INVOICE_LAYOUT);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -43,6 +46,11 @@ export default function Settings() {
     setFooterText(settings.footerText);
     setLogoUrl(settings.logoUrl ?? '');
     setCustomFields(settings.customFields.length ? settings.customFields : defaultFields);
+    setLayoutSections(
+      settings.layoutSections.length
+        ? settings.layoutSections
+        : DEFAULT_INVOICE_LAYOUT,
+    );
   }, [settings]);
 
   const updateCustomField = (index: number, key: keyof InvoiceCustomField, value: string) => {
@@ -105,6 +113,40 @@ export default function Settings() {
     }
   };
 
+  const updateLayoutSection = (
+    index: number,
+    updates: Partial<InvoiceLayoutSection>,
+  ) => {
+    setLayoutSections((current) =>
+      current.map((section, sectionIndex) =>
+        sectionIndex === index ? { ...section, ...updates } : section,
+      ),
+    );
+  };
+
+  const moveLayoutSection = (index: number, direction: -1 | 1) => {
+    setLayoutSections((current) => {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= current.length) return current;
+      const next = [...current];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next;
+    });
+  };
+
+  const addCustomSection = () => {
+    setLayoutSections((current) => [
+      ...current,
+      {
+        id: `custom-${Date.now()}`,
+        type: 'custom',
+        label: 'Secțiune nouă',
+        visible: true,
+        content: 'Adaugă aici informații suplimentare.',
+      },
+    ]);
+  };
+
   const handleSave = (event: React.FormEvent) => {
     event.preventDefault();
     const fields = customFields.filter((field) => field.label.trim() || field.text.trim());
@@ -119,6 +161,7 @@ export default function Settings() {
           footerText,
           logoUrl: logoUrl.trim() || null,
           customFields: fields,
+          layoutSections,
         },
       },
       {
@@ -179,6 +222,121 @@ export default function Settings() {
                 required
                 data-testid="input-settings-invoice-prefix"
               />
+            </div>
+          </section>
+
+          <section className="bg-card border border-card-border rounded-lg p-6">
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <h2 className="font-semibold">Structura facturii</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Reordonează secțiunile, ascunde ce nu folosești sau adaugă blocuri personalizate.
+                  Modificările apar în previzualizare, tipărire și PDF.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addCustomSection}
+                data-testid="button-add-layout-section"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Adaugă secțiune
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {layoutSections.map((section, index) => (
+                <div
+                  key={section.id}
+                  className="grid gap-3 rounded-md border border-border p-4 md:grid-cols-[auto_1fr_auto] md:items-center"
+                  data-testid={`layout-section-${section.id}`}
+                >
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <GripVertical className="h-4 w-4" />
+                    <span className="w-6 text-center text-sm font-mono">{index + 1}</span>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <Label htmlFor={`layout-section-label-${section.id}`}>Titlu secțiune</Label>
+                      <Input
+                        id={`layout-section-label-${section.id}`}
+                        value={section.label}
+                        onChange={(event) =>
+                          updateLayoutSection(index, { label: event.target.value })
+                        }
+                        className="mt-2"
+                        data-testid={`input-layout-section-label-${section.id}`}
+                      />
+                    </div>
+                    {section.type === 'custom' && (
+                      <div>
+                        <Label htmlFor={`layout-section-content-${section.id}`}>Conținut</Label>
+                        <Textarea
+                          id={`layout-section-content-${section.id}`}
+                          value={section.content ?? ''}
+                          onChange={(event) =>
+                            updateLayoutSection(index, { content: event.target.value })
+                          }
+                          className="mt-2"
+                          rows={2}
+                          data-testid={`input-layout-section-content-${section.id}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => moveLayoutSection(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Mută secțiunea ${section.label} în sus`}
+                      data-testid={`button-move-layout-section-up-${section.id}`}
+                    >
+                      <ArrowUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => moveLayoutSection(index, 1)}
+                      disabled={index === layoutSections.length - 1}
+                      aria-label={`Mută secțiunea ${section.label} în jos`}
+                      data-testid={`button-move-layout-section-down-${section.id}`}
+                    >
+                      <ArrowDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => updateLayoutSection(index, { visible: !section.visible })}
+                      aria-label={section.visible ? `Ascunde ${section.label}` : `Arată ${section.label}`}
+                      data-testid={`button-toggle-layout-section-${section.id}`}
+                    >
+                      {section.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    </Button>
+                    {section.type === 'custom' && (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setLayoutSections((current) =>
+                            current.filter((_, sectionIndex) => sectionIndex !== index),
+                          )
+                        }
+                        aria-label={`Șterge secțiunea ${section.label}`}
+                        data-testid={`button-remove-layout-section-${section.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 

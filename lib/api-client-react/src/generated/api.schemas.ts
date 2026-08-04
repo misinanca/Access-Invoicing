@@ -303,6 +303,36 @@ export interface InvoiceCustomField {
   text: string;
 }
 
+export type InvoiceLayoutSectionType = typeof InvoiceLayoutSectionType[keyof typeof InvoiceLayoutSectionType];
+
+
+export const InvoiceLayoutSectionType = {
+  header: 'header',
+  customer: 'customer',
+  customFields: 'customFields',
+  lineItems: 'lineItems',
+  totals: 'totals',
+  notes: 'notes',
+  footer: 'footer',
+  custom: 'custom',
+} as const;
+
+export interface InvoiceLayoutSection {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  id: string;
+  type: InvoiceLayoutSectionType;
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  label: string;
+  visible: boolean;
+  content?: string;
+}
+
 export interface InvoiceSettings {
   invoicePrefix: string;
   invoiceTitle: string;
@@ -312,6 +342,7 @@ export interface InvoiceSettings {
   /** @nullable */
   logoUrl: string | null;
   customFields: InvoiceCustomField[];
+  layoutSections: InvoiceLayoutSection[];
   updatedAt: string;
 }
 
@@ -325,6 +356,7 @@ export interface InvoiceSettingsUpdate {
   /** @nullable */
   logoUrl?: string | null;
   customFields?: InvoiceCustomField[];
+  layoutSections?: InvoiceLayoutSection[];
 }
 
 export interface InvoiceSummary {

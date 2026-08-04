@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { InvoiceCustomField } from './invoiceCustomField';
+import type { InvoiceLayoutSection } from './invoiceLayoutSection';
 
 export interface InvoiceSettings {
   invoicePrefix: string;
@@ -16,5 +17,6 @@ export interface InvoiceSettings {
   /** @nullable */
   logoUrl: string | null;
   customFields: InvoiceCustomField[];
+  layoutSections: InvoiceLayoutSection[];
   updatedAt: string;
 }
