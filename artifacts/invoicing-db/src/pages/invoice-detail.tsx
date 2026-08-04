@@ -15,6 +15,11 @@ import {
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { formatDateInput } from '@/lib/utils';
+import {
+  formatInvoiceCurrency,
+  formatInvoiceDate,
+  getInvoiceEmailUrl,
+} from '@/lib/invoice-email';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -27,23 +32,6 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadInvoiceFile } from '@/lib/invoice-download';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { InvoiceStatus, LineItem } from '@workspace/api-client-react';
-
-function formatInvoiceCurrency(amount: number): string {
-  return new Intl.NumberFormat('ro-RO', {
-    style: 'currency',
-    currency: 'RON',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
-}
-
-function formatInvoiceDate(date: string): string {
-  return new Intl.DateTimeFormat('ro-RO', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(new Date(date));
-}
 
 function translateInvoiceStatus(status: InvoiceStatus): string {
   return {
@@ -170,7 +158,10 @@ export default function InvoiceDetail() {
   const total = subtotal + taxAmount;
 
   const handleEmailCustomer = () => {
-    if (!invoice?.customerEmail) {
+    if (!invoice) return;
+
+    const emailUrl = getInvoiceEmailUrl(invoice);
+    if (!emailUrl) {
       toast({
         title: 'Lipsește adresa de email',
         description: 'Adaugă o adresă de email clientului înainte de a trimite factura.',
@@ -179,33 +170,7 @@ export default function InvoiceDetail() {
       return;
     }
 
-    const lineItemsText = invoice.lineItems
-      .map(
-        (item) =>
-          `- ${item.description} | ${item.quantity} x ${formatInvoiceCurrency(item.unitPrice)} = ${formatInvoiceCurrency(item.amount)}`,
-      )
-      .join('\n');
-    const subject = `Factură ${invoice.invoiceNumber}`;
-    const body = [
-      `Bună ziua, ${invoice.customerName},`,
-      '',
-      `Vă transmitem factura ${invoice.invoiceNumber}.`,
-      `Data emiterii: ${formatInvoiceDate(invoice.issueDate)}`,
-      `Data scadenței: ${formatInvoiceDate(invoice.dueDate)}`,
-      '',
-      'Detalii:',
-      lineItemsText || '- Fără articole',
-      '',
-      `Total de plată: ${formatInvoiceCurrency(invoice.total)}`,
-      '',
-      invoice.notes || '',
-      '',
-      'Vă mulțumim.',
-    ]
-      .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
-      .join('\n');
-
-    window.location.href = `mailto:${encodeURIComponent(invoice.customerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = emailUrl;
   };
 
   const handleDownloadInvoice = async () => {

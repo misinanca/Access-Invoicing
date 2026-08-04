@@ -12,6 +12,8 @@ export interface InvoiceWithCustomer {
   invoiceNumber: string;
   customerId: number;
   customerName: string;
+  /** @nullable */
+  customerEmail: string | null;
   status: InvoiceWithCustomerStatus;
   issueDate: string;
   dueDate: string;

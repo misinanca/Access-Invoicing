@@ -7,7 +7,11 @@
  */
 import * as zodImport from 'zod';
 
-const zod = { ...zodImport, int: () => zodImport.number().int() };
+// Orval emits zod.int(), while this workspace runs Zod 3.
+const zod = {
+  ...zodImport,
+  int: () => zodImport.number().int(),
+};
 
 
 /**
@@ -257,6 +261,7 @@ export const GetCustomerInvoicesResponseItem = zod.object({
   "invoiceNumber": zod.string(),
   "customerId": zod.int(),
   "customerName": zod.string(),
+  "customerEmail": zod.string().nullable(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
@@ -384,6 +389,7 @@ export const ListInvoicesResponseItem = zod.object({
   "invoiceNumber": zod.string(),
   "customerId": zod.int(),
   "customerName": zod.string(),
+  "customerEmail": zod.string().nullable(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),
@@ -453,6 +459,7 @@ export const GetRecentInvoicesResponseItem = zod.object({
   "invoiceNumber": zod.string(),
   "customerId": zod.int(),
   "customerName": zod.string(),
+  "customerEmail": zod.string().nullable(),
   "status": zod.enum(['draft', 'sent', 'paid', 'overdue']),
   "issueDate": zod.string(),
   "dueDate": zod.string(),

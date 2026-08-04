@@ -12,7 +12,7 @@ import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { downloadInvoiceFile, downloadInvoiceFilesAsZip } from '@/lib/invoice-download';
 import { Link } from 'wouter';
-import { Plus, Search, FileText, Trash2, Download, Archive } from 'lucide-react';
+import { Plus, Search, FileText, Trash2, Download, Archive, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { getInvoiceEmailUrl } from '@/lib/invoice-email';
 import type { InvoiceStatus } from '@workspace/api-client-react';
 import {
   AlertDialog,
@@ -218,6 +219,9 @@ export default function Invoices() {
                     <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       PDF
                     </th>
+                    <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Email
+                    </th>
                     <th className="w-16 px-6 py-3"></th>
                   </tr>
                 </thead>
@@ -270,6 +274,14 @@ export default function Invoices() {
                         <DownloadInvoiceButton
                           invoiceId={invoice.id}
                           invoiceNumber={invoice.invoiceNumber}
+                        />
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <EmailInvoiceButton
+                          invoiceId={invoice.id}
+                          invoiceNumber={invoice.invoiceNumber}
+                          customerName={invoice.customerName}
+                          customerEmail={invoice.customerEmail}
                         />
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -333,6 +345,70 @@ function DownloadInvoiceButton({
       data-testid={`button-download-invoice-${invoiceId}`}
     >
       <Download className="h-4 w-4" />
+    </Button>
+  );
+}
+
+function EmailInvoiceButton({
+  invoiceId,
+  invoiceNumber,
+  customerName,
+  customerEmail,
+}: {
+  invoiceId: number;
+  invoiceNumber: string;
+  customerName: string;
+  customerEmail: string | null;
+}) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleEmail = async () => {
+    if (!customerEmail) {
+      toast({
+        title: 'Lipsește adresa de email',
+        description: `Adaugă o adresă de email pentru ${customerName} înainte de a trimite factura.`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const invoice = await getInvoice(invoiceId);
+      const emailUrl = getInvoiceEmailUrl(invoice);
+      if (!emailUrl) {
+        toast({
+          title: 'Lipsește adresa de email',
+          description: `Adaugă o adresă de email pentru ${customerName} înainte de a trimite factura.`,
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      window.location.href = emailUrl;
+    } catch {
+      toast({
+        title: 'Factura nu a putut fi pregătită pentru email',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      onClick={handleEmail}
+      disabled={isLoading}
+      className="text-muted-foreground hover:bg-primary/10 hover:text-primary"
+      aria-label={`Trimite factura ${invoiceNumber} prin email către ${customerName}`}
+      title={customerEmail ? `Trimite către ${customerEmail}` : 'Clientul nu are adresă de email'}
+      data-testid={`button-email-invoice-${invoiceId}`}
+    >
+      <Mail className="h-4 w-4" />
     </Button>
   );
 }
