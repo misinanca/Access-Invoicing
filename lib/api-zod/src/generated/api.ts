@@ -59,6 +59,7 @@ export const UpdateCompanyResponse = zod.object({
 /**
  * @summary Get invoice settings
  */
+
 export const getInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
 
 export const getInvoiceSettingsResponseLayoutSectionsItemLabelMax = 120;
@@ -91,6 +92,7 @@ export const getInvoiceSettingsResponseInvoiceLabelsTotalMax = 80;
 
 export const GetInvoiceSettingsResponse = zod.object({
   "invoicePrefix": zod.string(),
+  "startingInvoiceNumber": zod.int().min(1),
   "invoiceTitle": zod.string(),
   "issuerName": zod.string(),
   "issuerAddress": zod.string(),
@@ -129,6 +131,7 @@ export const GetInvoiceSettingsResponse = zod.object({
  * @summary Update invoice settings
  */
 
+
 export const updateInvoiceSettingsBodyLayoutSectionsItemIdMax = 80;
 
 export const updateInvoiceSettingsBodyLayoutSectionsItemLabelMax = 120;
@@ -161,6 +164,7 @@ export const updateInvoiceSettingsBodyInvoiceLabelsTotalMax = 80;
 
 export const UpdateInvoiceSettingsBody = zod.object({
   "invoicePrefix": zod.string().min(1).optional(),
+  "startingInvoiceNumber": zod.int().min(1).optional(),
   "invoiceTitle": zod.string().optional(),
   "issuerName": zod.string().optional(),
   "issuerAddress": zod.string().optional(),
@@ -192,6 +196,7 @@ export const UpdateInvoiceSettingsBody = zod.object({
   "total": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsTotalMax)
 }).optional()
 })
+
 
 export const updateInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
 
@@ -225,6 +230,7 @@ export const updateInvoiceSettingsResponseInvoiceLabelsTotalMax = 80;
 
 export const UpdateInvoiceSettingsResponse = zod.object({
   "invoicePrefix": zod.string(),
+  "startingInvoiceNumber": zod.int().min(1),
   "invoiceTitle": zod.string(),
   "issuerName": zod.string(),
   "issuerAddress": zod.string(),

@@ -398,6 +398,8 @@ export interface InvoiceLabels {
 
 export interface InvoiceSettings {
   invoicePrefix: string;
+  /** @minimum 1 */
+  startingInvoiceNumber: number;
   invoiceTitle: string;
   issuerName: string;
   issuerAddress: string;
@@ -413,6 +415,8 @@ export interface InvoiceSettings {
 export interface InvoiceSettingsUpdate {
   /** @minLength 1 */
   invoicePrefix?: string;
+  /** @minimum 1 */
+  startingInvoiceNumber?: number;
   invoiceTitle?: string;
   issuerName?: string;
   issuerAddress?: string;

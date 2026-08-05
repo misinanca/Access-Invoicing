@@ -41,6 +41,7 @@ export const invoiceSettingsTable = pgTable("invoice_settings", {
     .default(1)
     .references(() => companiesTable.id, { onDelete: "cascade" }),
   invoicePrefix: text("invoice_prefix").notNull().default("INV"),
+  startingInvoiceNumber: integer("starting_invoice_number").notNull().default(1),
   invoiceTitle: text("invoice_title").notNull().default("FACTURĂ DE CHIRIE"),
   issuerName: text("issuer_name").notNull().default("Administrare imobile"),
   issuerAddress: text("issuer_address").notNull().default("Adresă emitent"),

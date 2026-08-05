@@ -153,7 +153,14 @@ async function nextInvoiceNumber(companyId: number): Promise<string> {
     .where(eq(invoiceSettingsTable.companyId, companyId));
   const prefix = settings?.invoicePrefix || "INV";
 
-  if (!last) return `${prefix}-0001`;
+  if (!last) {
+    const [numberSettings] = await db
+      .select({ startingInvoiceNumber: invoiceSettingsTable.startingInvoiceNumber })
+      .from(invoiceSettingsTable)
+      .where(eq(invoiceSettingsTable.companyId, companyId));
+    const startingNumber = numberSettings?.startingInvoiceNumber ?? 1;
+    return `${prefix}-${String(startingNumber).padStart(4, "0")}`;
+  }
 
   const match = last.invoiceNumber.match(/(\d+)$/);
   const num = match ? parseInt(match[1], 10) + 1 : 1;

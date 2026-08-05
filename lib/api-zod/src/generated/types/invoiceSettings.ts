@@ -11,6 +11,8 @@ import type { InvoiceLayoutSection } from './invoiceLayoutSection';
 
 export interface InvoiceSettings {
   invoicePrefix: string;
+  /** @minimum 1 */
+  startingInvoiceNumber: number;
   invoiceTitle: string;
   issuerName: string;
   issuerAddress: string;

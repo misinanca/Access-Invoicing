@@ -932,10 +932,13 @@ components:
 
     InvoiceSettings:
       type: object
-      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, layoutSections, invoiceLabels, updatedAt]
+      required: [invoicePrefix, startingInvoiceNumber, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, layoutSections, invoiceLabels, updatedAt]
       properties:
         invoicePrefix:
           type: string
+        startingInvoiceNumber:
+          type: integer
+          minimum: 1
         invoiceTitle:
           type: string
         issuerName:
@@ -974,6 +977,9 @@ components:
         invoicePrefix:
           type: string
           minLength: 1
+        startingInvoiceNumber:
+          type: integer
+          minimum: 1
         invoiceTitle:
           type: string
         issuerName:

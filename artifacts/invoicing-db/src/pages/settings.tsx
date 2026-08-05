@@ -28,6 +28,7 @@ export default function Settings() {
   const updateSettings = useUpdateInvoiceSettings();
 
   const [invoicePrefix, setInvoicePrefix] = useState('');
+  const [startingInvoiceNumber, setStartingInvoiceNumber] = useState('1');
   const [invoiceTitle, setInvoiceTitle] = useState('');
   const [issuerName, setIssuerName] = useState('');
   const [issuerAddress, setIssuerAddress] = useState('');
@@ -42,6 +43,7 @@ export default function Settings() {
   useEffect(() => {
     if (!settings) return;
     setInvoicePrefix(settings.invoicePrefix);
+    setStartingInvoiceNumber(String(settings.startingInvoiceNumber));
     setInvoiceTitle(settings.invoiceTitle);
     setIssuerName(settings.issuerName);
     setIssuerAddress(settings.issuerAddress);
@@ -165,6 +167,7 @@ export default function Settings() {
       {
         data: {
           invoicePrefix: invoicePrefix.trim(),
+          startingInvoiceNumber: Math.max(1, Number(startingInvoiceNumber) || 1),
           invoiceTitle,
           issuerName,
           issuerAddress,
@@ -218,21 +221,41 @@ export default function Settings() {
               <div>
                 <h2 className="font-semibold">Numerotarea facturilor</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Prefixul se aplică facturilor noi generate. Facturile existente își păstrează numărul.
+                  Prefixul și numărul de start se aplică facturilor noi generate. Facturile existente își păstrează numărul.
                 </p>
               </div>
             </div>
-            <div className="max-w-sm">
-              <Label htmlFor="settings-invoice-prefix">Prefix factură</Label>
-              <Input
-                id="settings-invoice-prefix"
-                value={invoicePrefix}
-                onChange={(event) => setInvoicePrefix(event.target.value)}
-                className="mt-2 font-mono"
-                placeholder="INV"
-                required
-                data-testid="input-settings-invoice-prefix"
-              />
+            <div className="grid gap-5 md:grid-cols-2">
+              <div>
+                <Label htmlFor="settings-invoice-prefix">Prefix factură</Label>
+                <Input
+                  id="settings-invoice-prefix"
+                  value={invoicePrefix}
+                  onChange={(event) => setInvoicePrefix(event.target.value)}
+                  className="mt-2 font-mono"
+                  placeholder="INV"
+                  required
+                  data-testid="input-settings-invoice-prefix"
+                />
+              </div>
+              <div>
+                <Label htmlFor="settings-starting-invoice-number">Număr de start</Label>
+                <Input
+                  id="settings-starting-invoice-number"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={startingInvoiceNumber}
+                  onChange={(event) => setStartingInvoiceNumber(event.target.value)}
+                  className="mt-2 font-mono"
+                  placeholder="1"
+                  required
+                  data-testid="input-settings-starting-invoice-number"
+                />
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Prima factură nouă va folosi acest număr, de exemplu 25 devine INV-0025.
+                </p>
+              </div>
             </div>
           </section>
 

@@ -13,6 +13,7 @@ const router: IRouter = Router();
 
 const DEFAULT_SETTINGS = {
   invoicePrefix: "INV",
+  startingInvoiceNumber: 1,
   invoiceTitle: "FACTURĂ DE CHIRIE",
   issuerName: "Administrare imobile",
   issuerAddress: "Adresă emitent",
@@ -118,6 +119,7 @@ router.patch("/invoice-settings", async (req, res): Promise<void> => {
   try {
     for (const key of [
       "invoicePrefix",
+      "startingInvoiceNumber",
       "invoiceTitle",
       "issuerName",
       "issuerAddress",
