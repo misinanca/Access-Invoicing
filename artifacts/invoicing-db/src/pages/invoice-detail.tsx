@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 import { downloadInvoiceFile } from '@/lib/invoice-download';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { InvoiceLayoutSection, InvoiceStatus, LineItem } from '@workspace/api-client-react';
-import { getInvoiceLayout } from '@/lib/invoice-layout';
+import { getInvoiceLabels, getInvoiceLayout } from '@/lib/invoice-layout';
 
 function translateInvoiceStatus(status: InvoiceStatus): string {
   return {
@@ -157,6 +157,7 @@ export default function InvoiceDetail() {
   const subtotal = invoice?.lineItems.reduce((sum, item) => sum + item.amount, 0) || 0;
   const taxAmount = subtotal * (Number(taxRate) / 100);
   const total = subtotal + taxAmount;
+  const invoiceLabels = getInvoiceLabels(invoiceSettings);
 
   const handleEmailCustomer = () => {
     if (!invoice) return;
@@ -202,7 +203,7 @@ export default function InvoiceDetail() {
                   className="mb-4 max-h-[280px] max-w-[950px] object-contain object-left"
                 />
               )}
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 {invoiceSettings?.invoiceTitle || section.label}
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
@@ -223,21 +224,25 @@ export default function InvoiceDetail() {
         return (
           <section key={section.id} className="grid grid-cols-1 md:grid-cols-2 gap-8 border-b border-slate-200 py-6 text-sm">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{invoiceLabels.customer}</p>
               <p className="mt-3 text-base font-semibold text-slate-950">{currentInvoice.customerName}</p>
-              <p className="mt-1 text-slate-600">{currentInvoice.customerEmail || 'Email necompletat'}</p>
+              <p className="mt-1 text-slate-600">
+                {currentInvoice.customerEmail
+                  ? `${invoiceLabels.email}: ${currentInvoice.customerEmail}`
+                  : `${invoiceLabels.email}: necompletat`}
+              </p>
             </div>
             <div className="space-y-2 md:text-right">
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Data emiterii</span>
+                <span className="text-slate-500">{invoiceLabels.issueDate}</span>
                 <span className="font-medium text-slate-950">{formatInvoiceDate(currentInvoice.issueDate)}</span>
               </div>
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Data scadenței</span>
+                <span className="text-slate-500">{invoiceLabels.dueDate}</span>
                 <span className="font-semibold text-slate-950">{formatInvoiceDate(currentInvoice.dueDate)}</span>
               </div>
               <div className="flex justify-between gap-5 md:justify-end">
-                <span className="text-slate-500">Stare</span>
+                <span className="text-slate-500">{invoiceLabels.status}</span>
                 <span className="font-medium text-slate-950">{translateInvoiceStatus(currentInvoice.status)}</span>
               </div>
             </div>
@@ -264,10 +269,10 @@ export default function InvoiceDetail() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b-2 border-slate-900 text-left text-xs uppercase tracking-wider text-slate-500">
-                  <th className="pb-3 font-semibold">Descriere</th>
-                  <th className="w-20 pb-3 text-right font-semibold">Cant.</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Preț unitar (RON)</th>
-                  <th className="w-32 pb-3 text-right font-semibold">Valoare (RON)</th>
+                  <th className="pb-3 font-semibold">{invoiceLabels.description}</th>
+                  <th className="w-20 pb-3 text-right font-semibold">{invoiceLabels.quantity}</th>
+                  <th className="w-32 pb-3 text-right font-semibold">{invoiceLabels.unitPrice} (RON)</th>
+                  <th className="w-32 pb-3 text-right font-semibold">{invoiceLabels.amount} (RON)</th>
                 </tr>
               </thead>
               <tbody>
@@ -292,9 +297,9 @@ export default function InvoiceDetail() {
           <section key={section.id} className="border-t border-slate-200 py-5">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">{section.label}</p>
             <div className="ml-auto max-w-xs space-y-2 text-sm">
-              <div className="flex justify-between text-slate-600"><span>Subtotal (RON)</span><span className="font-mono">{formatInvoiceCurrency(subtotal)}</span></div>
-              <div className="flex justify-between text-slate-600"><span>TVA ({taxRate}%) (RON)</span><span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span></div>
-              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950"><span>Total de plată (RON)</span><span className="font-mono">{formatInvoiceCurrency(total)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>{invoiceLabels.subtotal} (RON)</span><span className="font-mono">{formatInvoiceCurrency(subtotal)}</span></div>
+              <div className="flex justify-between text-slate-600"><span>{invoiceLabels.tax} ({taxRate}%) (RON)</span><span className="font-mono">{formatInvoiceCurrency(taxAmount)}</span></div>
+              <div className="flex justify-between border-t-2 border-slate-900 pt-3 text-base font-bold text-slate-950"><span>{invoiceLabels.total} (RON)</span><span className="font-mono">{formatInvoiceCurrency(total)}</span></div>
             </div>
           </section>
         );
@@ -550,7 +555,9 @@ export default function InvoiceDetail() {
         {/* Line Items */}
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
           <div className="px-6 py-4 border-b border-card-border flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Poziții factură</h2>
+            <h2 className="text-lg font-semibold">
+              {getInvoiceLayout(invoiceSettings).find((section) => section.type === 'lineItems')?.label ?? 'Poziții factură'}
+            </h2>
             <Button onClick={handleAddLineItem} size="sm" disabled={createLineItem.isPending} data-testid="button-add-line-item">
               <Plus className="h-4 w-4 mr-2" />
               Adaugă poziție
@@ -562,16 +569,16 @@ export default function InvoiceDetail() {
               <thead className="bg-muted/50 border-b border-border">
                 <tr>
                   <th className="text-left px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Descriere
+                    {invoiceLabels.description}
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Cant.
+                    {invoiceLabels.quantity}
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Preț unitar
+                    {invoiceLabels.unitPrice} (RON)
                   </th>
                   <th className="text-right px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Valoare
+                    {invoiceLabels.amount} (RON)
                   </th>
                   <th className="w-12"></th>
                 </tr>
@@ -601,15 +608,15 @@ export default function InvoiceDetail() {
           <div className="border-t border-card-border bg-muted/20 px-6 py-4">
             <div className="max-w-xs ml-auto space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
+                <span className="text-muted-foreground">{invoiceLabels.subtotal}:</span>
                 <span className="font-mono font-semibold">{formatInvoiceCurrency(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">TVA ({taxRate}%):</span>
+                <span className="text-muted-foreground">{invoiceLabels.tax} ({taxRate}%):</span>
                 <span className="font-mono font-semibold">{formatInvoiceCurrency(taxAmount)}</span>
               </div>
               <div className="flex justify-between text-lg border-t border-border pt-2">
-                <span className="font-semibold">Total de plată:</span>
+                <span className="font-semibold">{invoiceLabels.total}:</span>
                 <span className="font-mono font-bold">{formatInvoiceCurrency(total)}</span>
               </div>
             </div>

@@ -19,6 +19,7 @@ export * from './invoiceDetail';
 export * from './invoiceDetailStatus';
 export * from './invoiceInput';
 export * from './invoiceInputStatus';
+export * from './invoiceLabels';
 export * from './invoiceLayoutSection';
 export * from './invoiceLayoutSectionType';
 export * from './invoiceSettings';

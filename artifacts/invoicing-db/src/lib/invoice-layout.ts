@@ -1,4 +1,19 @@
-import type { InvoiceLayoutSection, InvoiceSettings } from '@workspace/api-client-react';
+import type { InvoiceLabels, InvoiceLayoutSection, InvoiceSettings } from '@workspace/api-client-react';
+
+export const DEFAULT_INVOICE_LABELS: InvoiceLabels = {
+  customer: 'Client și date',
+  email: 'Email',
+  issueDate: 'Data emiterii',
+  dueDate: 'Data scadenței',
+  status: 'Stare',
+  description: 'Descriere',
+  quantity: 'Cant.',
+  unitPrice: 'Preț unitar',
+  amount: 'Valoare',
+  subtotal: 'Subtotal',
+  tax: 'TVA',
+  total: 'Total de plată',
+};
 
 export const DEFAULT_INVOICE_LAYOUT: InvoiceLayoutSection[] = [
   { id: 'header', type: 'header', label: 'Antet', visible: true },
@@ -13,4 +28,11 @@ export const DEFAULT_INVOICE_LAYOUT: InvoiceLayoutSection[] = [
 export function getInvoiceLayout(settings?: InvoiceSettings | null): InvoiceLayoutSection[] {
   const sections = settings?.layoutSections;
   return sections?.length ? sections : DEFAULT_INVOICE_LAYOUT;
+}
+
+export function getInvoiceLabels(settings?: InvoiceSettings | null): InvoiceLabels {
+  return {
+    ...DEFAULT_INVOICE_LABELS,
+    ...(settings?.invoiceLabels ?? {}),
+  };
 }

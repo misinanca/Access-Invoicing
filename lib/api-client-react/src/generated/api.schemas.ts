@@ -333,6 +333,69 @@ export interface InvoiceLayoutSection {
   content?: string;
 }
 
+export interface InvoiceLabels {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  customer: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  email: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  issueDate: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  dueDate: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  status: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  description: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  quantity: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  unitPrice: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  amount: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subtotal: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  tax: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  total: string;
+}
+
 export interface InvoiceSettings {
   invoicePrefix: string;
   invoiceTitle: string;
@@ -343,6 +406,7 @@ export interface InvoiceSettings {
   logoUrl: string | null;
   customFields: InvoiceCustomField[];
   layoutSections: InvoiceLayoutSection[];
+  invoiceLabels: InvoiceLabels;
   updatedAt: string;
 }
 
@@ -357,6 +421,7 @@ export interface InvoiceSettingsUpdate {
   logoUrl?: string | null;
   customFields?: InvoiceCustomField[];
   layoutSections?: InvoiceLayoutSection[];
+  invoiceLabels?: InvoiceLabels;
 }
 
 export interface InvoiceSummary {

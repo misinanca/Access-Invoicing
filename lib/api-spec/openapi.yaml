@@ -932,7 +932,7 @@ components:
 
     InvoiceSettings:
       type: object
-      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, layoutSections, updatedAt]
+      required: [invoicePrefix, invoiceTitle, issuerName, issuerAddress, footerText, logoUrl, customFields, layoutSections, invoiceLabels, updatedAt]
       properties:
         invoicePrefix:
           type: string
@@ -954,6 +954,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InvoiceLayoutSection"
+        invoiceLabels:
+          $ref: "#/components/schemas/InvoiceLabels"
         updatedAt:
           type: string
 
@@ -990,6 +992,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/InvoiceLayoutSection"
+        invoiceLabels:
+          $ref: "#/components/schemas/InvoiceLabels"
 
     InvoiceLayoutSection:
       type: object
@@ -1010,6 +1014,59 @@ components:
           type: boolean
         content:
           type: string
+
+    InvoiceLabels:
+      type: object
+      required: [customer, email, issueDate, dueDate, status, description, quantity, unitPrice, amount, subtotal, tax, total]
+      properties:
+        customer:
+          type: string
+          minLength: 1
+          maxLength: 80
+        email:
+          type: string
+          minLength: 1
+          maxLength: 80
+        issueDate:
+          type: string
+          minLength: 1
+          maxLength: 80
+        dueDate:
+          type: string
+          minLength: 1
+          maxLength: 80
+        status:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+          minLength: 1
+          maxLength: 80
+        quantity:
+          type: string
+          minLength: 1
+          maxLength: 80
+        unitPrice:
+          type: string
+          minLength: 1
+          maxLength: 80
+        amount:
+          type: string
+          minLength: 1
+          maxLength: 80
+        subtotal:
+          type: string
+          minLength: 1
+          maxLength: 80
+        tax:
+          type: string
+          minLength: 1
+          maxLength: 80
+        total:
+          type: string
+          minLength: 1
+          maxLength: 80
 
     InvoiceSummary:
       type: object

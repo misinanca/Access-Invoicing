@@ -5,6 +5,7 @@ import {
   useGetInvoiceSettings,
   useUpdateInvoiceSettings,
   type InvoiceCustomField,
+  type InvoiceLabels,
   type InvoiceLayoutSection,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { DEFAULT_INVOICE_LAYOUT } from '@/lib/invoice-layout';
+import { DEFAULT_INVOICE_LABELS, DEFAULT_INVOICE_LAYOUT } from '@/lib/invoice-layout';
 
 const defaultFields: InvoiceCustomField[] = [];
 
@@ -35,6 +36,7 @@ export default function Settings() {
   const [isReadingLogo, setIsReadingLogo] = useState(false);
   const [customFields, setCustomFields] = useState<InvoiceCustomField[]>(defaultFields);
   const [layoutSections, setLayoutSections] = useState<InvoiceLayoutSection[]>(DEFAULT_INVOICE_LAYOUT);
+  const [invoiceLabels, setInvoiceLabels] = useState<InvoiceLabels>(DEFAULT_INVOICE_LABELS);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -51,6 +53,10 @@ export default function Settings() {
         ? settings.layoutSections
         : DEFAULT_INVOICE_LAYOUT,
     );
+    setInvoiceLabels({
+      ...DEFAULT_INVOICE_LABELS,
+      ...settings.invoiceLabels,
+    });
   }, [settings]);
 
   const updateCustomField = (index: number, key: keyof InvoiceCustomField, value: string) => {
@@ -147,6 +153,10 @@ export default function Settings() {
     ]);
   };
 
+  const updateInvoiceLabel = (key: keyof InvoiceLabels, value: string) => {
+    setInvoiceLabels((current) => ({ ...current, [key]: value }));
+  };
+
   const handleSave = (event: React.FormEvent) => {
     event.preventDefault();
     const fields = customFields.filter((field) => field.label.trim() || field.text.trim());
@@ -162,6 +172,7 @@ export default function Settings() {
           logoUrl: logoUrl.trim() || null,
           customFields: fields,
           layoutSections,
+          invoiceLabels,
         },
       },
       {
@@ -222,6 +233,49 @@ export default function Settings() {
                 required
                 data-testid="input-settings-invoice-prefix"
               />
+            </div>
+          </section>
+
+          <section className="bg-card border border-card-border rounded-lg p-6">
+            <div className="flex items-start gap-3 mb-6">
+              <div className="rounded-md bg-primary/15 p-2 text-primary">
+                <Settings2 className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-semibold">Denumiri în factură</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Schimbă textele afișate pentru antetele și totalurile facturii.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-5 md:grid-cols-2">
+              {([
+                ['customer', 'Client / date client'],
+                ['email', 'Email'],
+                ['issueDate', 'Data emiterii'],
+                ['dueDate', 'Data scadenței'],
+                ['status', 'Stare'],
+                ['description', 'Descriere poziție'],
+                ['quantity', 'Cantitate'],
+                ['unitPrice', 'Preț unitar'],
+                ['amount', 'Valoare poziție'],
+                ['subtotal', 'Subtotal'],
+                ['tax', 'TVA'],
+                ['total', 'Total de plată'],
+              ] as Array<[keyof InvoiceLabels, string]>).map(([key, label]) => (
+                <div key={key}>
+                  <Label htmlFor={`invoice-label-${key}`}>{label}</Label>
+                  <Input
+                    id={`invoice-label-${key}`}
+                    value={invoiceLabels[key]}
+                    onChange={(event) => updateInvoiceLabel(key, event.target.value)}
+                    className="mt-2"
+                    maxLength={80}
+                    required
+                    data-testid={`input-invoice-label-${key}`}
+                  />
+                </div>
+              ))}
             </div>
           </section>
 

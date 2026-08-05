@@ -7,7 +7,7 @@ import {
   UpdateInvoiceSettingsResponse,
 } from "@workspace/api-zod";
 import { getCompanyId } from "../lib/company-context";
-import type { InvoiceLayoutSection } from "@workspace/db";
+import type { InvoiceLabels, InvoiceLayoutSection } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -28,6 +28,20 @@ const DEFAULT_SETTINGS = {
     { id: "notes", type: "notes", label: "Observații", visible: true },
     { id: "footer", type: "footer", label: "Subsol", visible: true },
   ] as InvoiceLayoutSection[],
+  invoiceLabels: {
+    customer: "Client și date",
+    email: "Email",
+    issueDate: "Data emiterii",
+    dueDate: "Data scadenței",
+    status: "Stare",
+    description: "Descriere",
+    quantity: "Cant.",
+    unitPrice: "Preț unitar",
+    amount: "Valoare",
+    subtotal: "Subtotal",
+    tax: "TVA",
+    total: "Total de plată",
+  } as InvoiceLabels,
 };
 
 const MAX_LOGO_DATA_URL_LENGTH = 3_000_000;
@@ -75,6 +89,10 @@ function formatSettings(settings: typeof invoiceSettingsTable.$inferSelect) {
     logoUrl: settings.logoUrl ?? null,
     customFields: settings.customFields ?? [],
     layoutSections: settings.layoutSections ?? DEFAULT_SETTINGS.layoutSections,
+    invoiceLabels: {
+      ...DEFAULT_SETTINGS.invoiceLabels,
+      ...(settings.invoiceLabels ?? {}),
+    },
     updatedAt: settings.updatedAt.toISOString(),
   };
 }
@@ -107,6 +125,7 @@ router.patch("/invoice-settings", async (req, res): Promise<void> => {
       "logoUrl",
       "customFields",
       "layoutSections",
+      "invoiceLabels",
     ] as const) {
       if (parsed.data[key] !== undefined) {
         updateData[key] =

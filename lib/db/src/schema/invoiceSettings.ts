@@ -19,6 +19,21 @@ export type InvoiceLayoutSection = {
   content?: string;
 };
 
+export type InvoiceLabels = {
+  customer: string;
+  email: string;
+  issueDate: string;
+  dueDate: string;
+  status: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  amount: string;
+  subtotal: string;
+  tax: string;
+  total: string;
+};
+
 export const invoiceSettingsTable = pgTable("invoice_settings", {
   id: integer("id").primaryKey().default(1),
   companyId: integer("company_id")
@@ -39,6 +54,23 @@ export const invoiceSettingsTable = pgTable("invoice_settings", {
     .$type<InvoiceLayoutSection[]>()
     .notNull()
     .default([]),
+  invoiceLabels: jsonb("invoice_labels")
+    .$type<InvoiceLabels>()
+    .notNull()
+    .default({
+      customer: "Client și date",
+      email: "Email",
+      issueDate: "Data emiterii",
+      dueDate: "Data scadenței",
+      status: "Stare",
+      description: "Descriere",
+      quantity: "Cant.",
+      unitPrice: "Preț unitar",
+      amount: "Valoare",
+      subtotal: "Subtotal",
+      tax: "TVA",
+      total: "Total de plată",
+    }),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({
   companyIdUnique: uniqueIndex("invoice_settings_company_id_unique").on(table.companyId),

@@ -63,6 +63,30 @@ export const getInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
 
 export const getInvoiceSettingsResponseLayoutSectionsItemLabelMax = 120;
 
+export const getInvoiceSettingsResponseInvoiceLabelsCustomerMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsEmailMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsIssueDateMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsDueDateMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsStatusMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsDescriptionMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsQuantityMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsUnitPriceMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsAmountMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsSubtotalMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsTaxMax = 80;
+
+export const getInvoiceSettingsResponseInvoiceLabelsTotalMax = 80;
+
 
 
 export const GetInvoiceSettingsResponse = zod.object({
@@ -83,6 +107,20 @@ export const GetInvoiceSettingsResponse = zod.object({
   "visible": zod.boolean(),
   "content": zod.string().optional()
 })),
+  "invoiceLabels": zod.object({
+  "customer": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsCustomerMax),
+  "email": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsEmailMax),
+  "issueDate": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsIssueDateMax),
+  "dueDate": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsDueDateMax),
+  "status": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsStatusMax),
+  "description": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsDescriptionMax),
+  "quantity": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsQuantityMax),
+  "unitPrice": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsUnitPriceMax),
+  "amount": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsAmountMax),
+  "subtotal": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsSubtotalMax),
+  "tax": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsTaxMax),
+  "total": zod.string().min(1).max(getInvoiceSettingsResponseInvoiceLabelsTotalMax)
+}),
   "updatedAt": zod.string()
 })
 
@@ -94,6 +132,30 @@ export const GetInvoiceSettingsResponse = zod.object({
 export const updateInvoiceSettingsBodyLayoutSectionsItemIdMax = 80;
 
 export const updateInvoiceSettingsBodyLayoutSectionsItemLabelMax = 120;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsCustomerMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsEmailMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsIssueDateMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsDueDateMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsStatusMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsDescriptionMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsQuantityMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsUnitPriceMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsAmountMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsSubtotalMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsTaxMax = 80;
+
+export const updateInvoiceSettingsBodyInvoiceLabelsTotalMax = 80;
 
 
 
@@ -114,12 +176,50 @@ export const UpdateInvoiceSettingsBody = zod.object({
   "label": zod.string().min(1).max(updateInvoiceSettingsBodyLayoutSectionsItemLabelMax),
   "visible": zod.boolean(),
   "content": zod.string().optional()
-})).optional()
+})).optional(),
+  "invoiceLabels": zod.object({
+  "customer": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsCustomerMax),
+  "email": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsEmailMax),
+  "issueDate": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsIssueDateMax),
+  "dueDate": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsDueDateMax),
+  "status": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsStatusMax),
+  "description": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsDescriptionMax),
+  "quantity": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsQuantityMax),
+  "unitPrice": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsUnitPriceMax),
+  "amount": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsAmountMax),
+  "subtotal": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsSubtotalMax),
+  "tax": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsTaxMax),
+  "total": zod.string().min(1).max(updateInvoiceSettingsBodyInvoiceLabelsTotalMax)
+}).optional()
 })
 
 export const updateInvoiceSettingsResponseLayoutSectionsItemIdMax = 80;
 
 export const updateInvoiceSettingsResponseLayoutSectionsItemLabelMax = 120;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsCustomerMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsEmailMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsIssueDateMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsDueDateMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsStatusMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsDescriptionMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsQuantityMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsUnitPriceMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsAmountMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsSubtotalMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsTaxMax = 80;
+
+export const updateInvoiceSettingsResponseInvoiceLabelsTotalMax = 80;
 
 
 
@@ -141,6 +241,20 @@ export const UpdateInvoiceSettingsResponse = zod.object({
   "visible": zod.boolean(),
   "content": zod.string().optional()
 })),
+  "invoiceLabels": zod.object({
+  "customer": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsCustomerMax),
+  "email": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsEmailMax),
+  "issueDate": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsIssueDateMax),
+  "dueDate": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsDueDateMax),
+  "status": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsStatusMax),
+  "description": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsDescriptionMax),
+  "quantity": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsQuantityMax),
+  "unitPrice": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsUnitPriceMax),
+  "amount": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsAmountMax),
+  "subtotal": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsSubtotalMax),
+  "tax": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsTaxMax),
+  "total": zod.string().min(1).max(updateInvoiceSettingsResponseInvoiceLabelsTotalMax)
+}),
   "updatedAt": zod.string()
 })
 
