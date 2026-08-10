@@ -103,12 +103,35 @@ A newly created local database receives the schema and starter companies, but th
 
 ## 4. Environment variables
 
-### Required by the API server
+Copy the committed `.env` template into a local file and fill in values:
+
+```bash
+cp .env .env.local
+```
+
+Edit `.env.local` (this file is gitignored):
 
 ```text
 DATABASE_URL=postgresql://user:password@host:5432/database
 PORT=8080
+LOG_LEVEL=info
 ```
+
+Load it before running commands:
+
+```bash
+set -a; source .env.local; set +a
+```
+
+### Required by the API server
+
+```text
+DATABASE_URL=
+PORT=
+LOG_LEVEL=
+```
+
+The committed `.env` file ships with empty values so secrets stay out of git. Put real values only in `.env.local`.
 
 The API development command sets `NODE_ENV=development` automatically.
 
@@ -319,6 +342,8 @@ pnpm install --frozen-lockfile
 export DATABASE_URL="postgresql://postgres:password@localhost:5432/invoicing_db"
 pnpm --filter @workspace/db run push
 ```
+
+Or put the same values in `.env.local` and load them with `set -a; source .env.local; set +a`.
 
 Start the API in one terminal:
 
