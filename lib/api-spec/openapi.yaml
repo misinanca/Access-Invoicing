@@ -24,6 +24,8 @@ tags:
     description: Invoice settings
   - name: companies
     description: Company selection
+  - name: gmail
+    description: App-wide Gmail OAuth connection for sending invoices
 
 paths:
   /healthz:
@@ -503,6 +505,91 @@ paths:
               schema:
                 $ref: "#/components/schemas/Invoice"
 
+  /invoices/{id}/send:
+    post:
+      operationId: sendInvoiceEmail
+      tags: [invoices]
+      summary: Send an invoice PDF to the customer via the connected Gmail account
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceEmailSendRequest"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceEmailSendResult"
+        "400":
+          description: Missing customer email, PDF, or Gmail not connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invoice not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "502":
+          description: Gmail API failure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Gmail ──────────────────────────────────────────────────────────────────
+  /gmail/status:
+    get:
+      operationId: getGmailStatus
+      tags: [gmail]
+      summary: Get the app-wide Gmail connection status
+      responses:
+        "200":
+          description: Connection status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GmailStatus"
+
+  /gmail/connect:
+    get:
+      operationId: getGmailConnectUrl
+      tags: [gmail]
+      summary: Get the Google OAuth URL to connect a personal Gmail account
+      responses:
+        "200":
+          description: OAuth authorization URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GmailConnectUrl"
+        "500":
+          description: Gmail OAuth is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /gmail/disconnect:
+    delete:
+      operationId: disconnectGmail
+      tags: [gmail]
+      summary: Disconnect the app-wide Gmail account
+      responses:
+        "204":
+          description: Disconnected
+
   # ── Line Items ─────────────────────────────────────────────────────────────
   /invoices/{invoiceId}/line-items:
     get:
@@ -631,6 +718,52 @@ components:
           type: string
       required:
         - error
+
+    GmailStatus:
+      type: object
+      required: [connected]
+      properties:
+        connected:
+          type: boolean
+        email:
+          type: ["string", "null"]
+        connectedAt:
+          type: ["string", "null"]
+
+    GmailConnectUrl:
+      type: object
+      required: [authUrl]
+      properties:
+        authUrl:
+          type: string
+
+    InvoiceEmailSendRequest:
+      type: object
+      required: [pdfBase64]
+      properties:
+        pdfBase64:
+          type: string
+          minLength: 1
+          description: Base64-encoded invoice PDF (optionally with a data URL prefix)
+        filename:
+          type: string
+          description: Attachment filename, defaults to factura.pdf
+
+    InvoiceEmailSendResult:
+      type: object
+      required: [ok, invoiceId, toEmail, gmailMessageId, status]
+      properties:
+        ok:
+          type: boolean
+        invoiceId:
+          type: integer
+        toEmail:
+          type: string
+        gmailMessageId:
+          type: string
+        status:
+          type: string
+          enum: [sent]
 
     # ── Customer ──────────────────────────────────────────────────────────────
     Customer:

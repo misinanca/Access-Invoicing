@@ -9,6 +9,8 @@ import {
   useCreateLineItem,
   useUpdateLineItem,
   useDeleteLineItem,
+  useGetGmailStatus,
+  sendInvoiceEmail,
   getGetInvoiceQueryKey,
   getListInvoicesQueryKey,
 } from '@workspace/api-client-react';
@@ -18,7 +20,7 @@ import { formatDateInput } from '@/lib/utils';
 import {
   formatInvoiceCurrency,
   formatInvoiceDate,
-  getInvoiceEmailUrl,
+  blobToBase64,
 } from '@/lib/invoice-email';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,7 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Trash2, Plus, ArrowLeft, Save, Mail, Printer, FileText, Download } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { downloadInvoiceFile } from '@/lib/invoice-download';
+import { downloadInvoiceFile, generateInvoicePdf } from '@/lib/invoice-download';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import type { InvoiceLayoutSection, InvoiceStatus, LineItem } from '@workspace/api-client-react';
 import { getInvoiceLabels, getInvoiceLayout } from '@/lib/invoice-layout';
@@ -54,6 +56,7 @@ export default function InvoiceDetail() {
     query: { enabled: !!invoiceId, queryKey: getGetInvoiceQueryKey(invoiceId) },
   });
   const { data: invoiceSettings } = useGetInvoiceSettings();
+  const { data: gmailStatus } = useGetGmailStatus();
 
   const updateInvoice = useUpdateInvoice();
   const updateStatus = useUpdateInvoiceStatus();
@@ -63,6 +66,7 @@ export default function InvoiceDetail() {
   const deleteLineItem = useDeleteLineItem();
 
   const [editMode, setEditMode] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [invoicePrefix, setInvoicePrefix] = useState('');
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [issueDate, setIssueDate] = useState('');
@@ -159,11 +163,10 @@ export default function InvoiceDetail() {
   const total = subtotal + taxAmount;
   const invoiceLabels = getInvoiceLabels(invoiceSettings);
 
-  const handleEmailCustomer = () => {
+  const handleEmailCustomer = async () => {
     if (!invoice) return;
 
-    const emailUrl = getInvoiceEmailUrl(invoice);
-    if (!emailUrl) {
+    if (!invoice.customerEmail) {
       toast({
         title: 'Lipsește adresa de email',
         description: 'Adaugă o adresă de email clientului înainte de a trimite factura.',
@@ -172,7 +175,39 @@ export default function InvoiceDetail() {
       return;
     }
 
-    window.location.href = emailUrl;
+    if (!gmailStatus?.connected) {
+      toast({
+        title: 'Gmail nu este conectat',
+        description: 'Conectează un cont Gmail din Setări înainte de a trimite facturi.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const { blob, filename } = await generateInvoicePdf(invoice, invoiceSettings);
+      const pdfBase64 = await blobToBase64(blob);
+      await sendInvoiceEmail(invoice.id, { pdfBase64, filename });
+      queryClient.invalidateQueries({ queryKey: getGetInvoiceQueryKey(invoiceId) });
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+      toast({
+        title: 'Factura a fost trimisă',
+        description: `Email trimis către ${invoice.customerEmail}`,
+      });
+    } catch (error) {
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : 'Încearcă din nou.';
+      toast({
+        title: 'Factura nu a putut fi trimisă',
+        description: message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   const handleDownloadInvoice = async () => {
@@ -375,10 +410,11 @@ export default function InvoiceDetail() {
             <Button
               variant="outline"
               onClick={handleEmailCustomer}
+              disabled={isSendingEmail}
               data-testid="button-email-invoice"
             >
               <Mail className="h-4 w-4 mr-2" />
-              Trimite factura
+              {isSendingEmail ? 'Se trimite...' : 'Trimite factura'}
             </Button>
             {editMode ? (
               <>
@@ -441,11 +477,18 @@ export default function InvoiceDetail() {
 
         <div className="flex items-center justify-between gap-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 print:hidden">
           <span>
-            Butonul deschide un mesaj precompletat în aplicația ta de email. Factura nu este marcată automat ca trimisă.
+            {gmailStatus?.connected
+              ? `Trimite factura cu PDF atașat din Gmail (${gmailStatus.email}). La succes, starea trece pe Trimisă.`
+              : 'Conectează Gmail din Setări pentru a trimite factura cu PDF atașat.'}
           </span>
-          <Button variant="outline" onClick={handleEmailCustomer} data-testid="button-email-invoice-secondary">
+          <Button
+            variant="outline"
+            onClick={handleEmailCustomer}
+            disabled={isSendingEmail}
+            data-testid="button-email-invoice-secondary"
+          >
             <Mail className="h-4 w-4 mr-2" />
-            Trimite către {invoice.customerName}
+            {isSendingEmail ? 'Se trimite...' : `Trimite către ${invoice.customerName}`}
           </Button>
         </div>
 

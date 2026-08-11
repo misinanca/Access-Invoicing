@@ -27,9 +27,8 @@ app.use(
   }),
 );
 app.use(cors());
-// Logo uploads are sent as validated data URLs together with invoice settings.
-// Allow enough room for a 2 MB image after base64 encoding.
-app.use(express.json({ limit: "4mb" }));
+// Invoice PDF emails send base64 payloads; keep headroom above logo settings uploads.
+app.use(express.json({ limit: "20mb" }));
 app.use(express.urlencoded({ extended: true }));
 
 app.use(async (_req, _res, next) => {

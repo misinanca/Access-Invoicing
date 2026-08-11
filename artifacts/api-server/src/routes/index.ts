@@ -5,6 +5,7 @@ import productsRouter from "./products";
 import invoicesRouter from "./invoices";
 import settingsRouter from "./settings";
 import companiesRouter from "./companies";
+import gmailRouter from "./gmail";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(productsRouter);
 router.use(invoicesRouter);
 router.use(settingsRouter);
 router.use(companiesRouter);
+router.use(gmailRouter);
 
 export default router;

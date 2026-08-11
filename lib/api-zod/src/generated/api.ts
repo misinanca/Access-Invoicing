@@ -746,6 +746,54 @@ export const UpdateInvoiceStatusResponse = zod.object({
 
 
 /**
+ * @summary Send an invoice PDF to the customer via the connected Gmail account
+ */
+export const SendInvoiceEmailParams = zod.object({
+  "id": zod.coerce.number().int()
+})
+
+
+
+
+export const SendInvoiceEmailBody = zod.object({
+  "pdfBase64": zod.string().min(1).describe('Base64-encoded invoice PDF (optionally with a data URL prefix)'),
+  "filename": zod.string().optional().describe('Attachment filename, defaults to factura.pdf')
+})
+
+export const SendInvoiceEmailResponse = zod.object({
+  "ok": zod.boolean(),
+  "invoiceId": zod.int(),
+  "toEmail": zod.string(),
+  "gmailMessageId": zod.string(),
+  "status": zod.enum(['sent'])
+})
+
+
+/**
+ * @summary Get the app-wide Gmail connection status
+ */
+export const GetGmailStatusResponse = zod.object({
+  "connected": zod.boolean(),
+  "email": zod.string().nullish(),
+  "connectedAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get the Google OAuth URL to connect a personal Gmail account
+ */
+export const GetGmailConnectUrlResponse = zod.object({
+  "authUrl": zod.string()
+})
+
+
+/**
+ * @summary Disconnect the app-wide Gmail account
+ */
+export const DisconnectGmailResponse = zod.void()
+
+
+/**
  * @summary List line items for an invoice
  */
 export const ListLineItemsParams = zod.object({

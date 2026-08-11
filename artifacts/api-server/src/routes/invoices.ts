@@ -7,6 +7,7 @@ import {
   lineItemsTable,
   invoiceSettingsTable,
   productsTable,
+  invoiceEmailLogTable,
 } from "@workspace/db";
 import {
   ListInvoicesQueryParams,
@@ -33,8 +34,13 @@ import {
   UpdateLineItemBody,
   UpdateLineItemResponse,
   DeleteLineItemParams,
+  SendInvoiceEmailParams,
+  SendInvoiceEmailBody,
+  SendInvoiceEmailResponse,
 } from "@workspace/api-zod";
 import { getCompanyId } from "../lib/company-context";
+import { sendInvoicePdfViaGmail } from "../lib/gmail";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -555,6 +561,128 @@ router.patch("/invoices/:id/status", async (req, res): Promise<void> => {
       updatedAt: row.updatedAt.toISOString(),
     })
   );
+});
+
+// ── Send Invoice Email ────────────────────────────────────────────────────────
+
+router.post("/invoices/:id/send", async (req, res): Promise<void> => {
+  const companyId = getCompanyId(req);
+  const params = SendInvoiceEmailParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const parsed = SendInvoiceEmailBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const [row] = await db
+    .select({
+      id: invoicesTable.id,
+      invoiceNumber: invoicesTable.invoiceNumber,
+      customerName: customersTable.name,
+      customerEmail: customersTable.email,
+      issueDate: invoicesTable.issueDate,
+      dueDate: invoicesTable.dueDate,
+      notes: invoicesTable.notes,
+      total: invoicesTable.total,
+    })
+    .from(invoicesTable)
+    .innerJoin(customersTable, eq(invoicesTable.customerId, customersTable.id))
+    .where(
+      and(
+        eq(invoicesTable.id, params.data.id),
+        eq(invoicesTable.companyId, companyId),
+        eq(customersTable.companyId, companyId),
+      ),
+    );
+
+  if (!row) {
+    res.status(404).json({ error: "Invoice not found" });
+    return;
+  }
+
+  if (!row.customerEmail?.trim()) {
+    res.status(400).json({ error: "Customer does not have an email address" });
+    return;
+  }
+
+  const lineItems = await db
+    .select()
+    .from(lineItemsTable)
+    .where(eq(lineItemsTable.invoiceId, params.data.id));
+
+  try {
+    const sent = await sendInvoicePdfViaGmail({
+      toEmail: row.customerEmail.trim(),
+      invoiceNumber: row.invoiceNumber,
+      customerName: row.customerName,
+      issueDate: row.issueDate,
+      dueDate: row.dueDate,
+      notes: row.notes,
+      total: Number(row.total),
+      lineItems: lineItems.map((item) => ({
+        description: item.description,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        amount: Number(item.amount),
+      })),
+      pdfBase64: parsed.data.pdfBase64,
+      filename: parsed.data.filename,
+    });
+
+    await db
+      .update(invoicesTable)
+      .set({ status: "sent", updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoicesTable.id, params.data.id),
+          eq(invoicesTable.companyId, companyId),
+        ),
+      );
+
+    await db.insert(invoiceEmailLogTable).values({
+      invoiceId: params.data.id,
+      companyId,
+      toEmail: row.customerEmail.trim(),
+      gmailMessageId: sent.gmailMessageId,
+      status: "sent",
+      error: null,
+    });
+
+    res.json(
+      SendInvoiceEmailResponse.parse({
+        ok: true,
+        invoiceId: params.data.id,
+        toEmail: row.customerEmail.trim(),
+        gmailMessageId: sent.gmailMessageId,
+        status: "sent",
+      }),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Failed to send invoice email";
+    logger.error({ err: error, invoiceId: params.data.id }, "Invoice email send failed");
+
+    await db.insert(invoiceEmailLogTable).values({
+      invoiceId: params.data.id,
+      companyId,
+      toEmail: row.customerEmail.trim(),
+      gmailMessageId: null,
+      status: "failed",
+      error: message,
+    });
+
+    const statusCode =
+      message.includes("not connected") || message.includes("not configured")
+        ? 400
+        : message.includes("empty")
+          ? 400
+          : 502;
+    res.status(statusCode).json({ error: message });
+  }
 });
 
 // ── Delete Invoice ────────────────────────────────────────────────────────────

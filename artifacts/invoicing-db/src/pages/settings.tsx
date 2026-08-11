@@ -1,15 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'wouter';
+import { Link, useSearch } from 'wouter';
 import {
   getGetInvoiceSettingsQueryKey,
+  getGetGmailStatusQueryKey,
   useGetInvoiceSettings,
   useUpdateInvoiceSettings,
+  useGetGmailStatus,
+  getGmailConnectUrl,
+  useDisconnectGmail,
   type InvoiceCustomField,
   type InvoiceLabels,
   type InvoiceLayoutSection,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, ImagePlus, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, ImagePlus, Mail, Plus, Save, Settings2, Trash2, X } from 'lucide-react';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,8 +28,12 @@ const defaultFields: InvoiceCustomField[] = [];
 export default function Settings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const searchString = useSearch();
   const { data: settings, isLoading } = useGetInvoiceSettings();
+  const { data: gmailStatus, isLoading: isGmailLoading } = useGetGmailStatus();
   const updateSettings = useUpdateInvoiceSettings();
+  const disconnectGmail = useDisconnectGmail();
+  const [isConnectingGmail, setIsConnectingGmail] = useState(false);
 
   const [invoicePrefix, setInvoicePrefix] = useState('');
   const [startingInvoiceNumber, setStartingInvoiceNumber] = useState('1');
@@ -60,6 +68,58 @@ export default function Settings() {
       ...settings.invoiceLabels,
     });
   }, [settings]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const gmailResult = params.get('gmail');
+    if (!gmailResult) return;
+
+    if (gmailResult === 'connected') {
+      toast({
+        title: 'Gmail conectat',
+        description: 'Facturile vor fi trimise din contul tău Gmail.',
+      });
+      queryClient.invalidateQueries({ queryKey: getGetGmailStatusQueryKey() });
+    } else if (gmailResult === 'error') {
+      toast({
+        title: 'Conectarea Gmail a eșuat',
+        description: params.get('reason') || 'Încearcă din nou.',
+        variant: 'destructive',
+      });
+    }
+
+    window.history.replaceState({}, '', '/settings');
+  }, [searchString, toast, queryClient]);
+
+  const handleConnectGmail = async () => {
+    setIsConnectingGmail(true);
+    try {
+      const { authUrl } = await getGmailConnectUrl();
+      window.location.href = authUrl;
+    } catch {
+      setIsConnectingGmail(false);
+      toast({
+        title: 'Gmail nu poate fi conectat',
+        description: 'Verifică configurația Google OAuth pe server.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDisconnectGmail = () => {
+    disconnectGmail.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetGmailStatusQueryKey() });
+        toast({ title: 'Gmail deconectat' });
+      },
+      onError: () => {
+        toast({
+          title: 'Deconectarea a eșuat',
+          variant: 'destructive',
+        });
+      },
+    });
+  };
 
   const updateCustomField = (index: number, key: keyof InvoiceCustomField, value: string) => {
     setCustomFields((current) =>
@@ -211,7 +271,57 @@ export default function Settings() {
         title="Setări"
         description="Personalizează numerele, aspectul și conținutul facturilor"
       />
-      <div className="max-w-5xl mx-auto px-8 py-8">
+      <div className="max-w-5xl mx-auto px-8 py-8 space-y-6">
+        <section className="bg-card border border-card-border rounded-lg p-6">
+          <div className="flex items-start gap-3 mb-6">
+            <div className="rounded-md bg-primary/15 p-2 text-primary">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-semibold">Gmail</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Conectează un cont Gmail personal pentru a trimite facturile cu PDF atașat.
+                Mesajele apar în folderul Sent al contului conectat. Tokenul este stocat criptat pe server.
+              </p>
+            </div>
+          </div>
+          {isGmailLoading ? (
+            <Skeleton className="h-16 w-full" />
+          ) : gmailStatus?.connected ? (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium">Conectat ca {gmailStatus.email}</p>
+                {gmailStatus.connectedAt && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Conectat la {new Date(gmailStatus.connectedAt).toLocaleString('ro-RO')}
+                  </p>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDisconnectGmail}
+                disabled={disconnectGmail.isPending}
+                data-testid="button-disconnect-gmail"
+              >
+                Deconectează Gmail
+              </Button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">Niciun cont Gmail conectat.</p>
+              <Button
+                type="button"
+                onClick={handleConnectGmail}
+                disabled={isConnectingGmail}
+                data-testid="button-connect-gmail"
+              >
+                {isConnectingGmail ? 'Se redirecționează...' : 'Conectează Gmail'}
+              </Button>
+            </div>
+          )}
+        </section>
+
         <form onSubmit={handleSave} className="space-y-6">
           <section className="bg-card border border-card-border rounded-lg p-6">
             <div className="flex items-start gap-3 mb-6">

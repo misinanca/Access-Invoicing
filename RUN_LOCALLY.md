@@ -115,6 +115,11 @@ Edit `.env.local` (this file is gitignored):
 DATABASE_URL=postgresql://user:password@host:5432/database
 PORT=8080
 LOG_LEVEL=info
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:8080/api/gmail/callback
+TOKEN_ENCRYPTION_KEY=
+FRONTEND_URL=http://localhost:19044
 ```
 
 Load it before running commands:
@@ -130,6 +135,28 @@ DATABASE_URL=
 PORT=
 LOG_LEVEL=
 ```
+
+### Optional — Gmail invoice sending
+
+Connect one personal Gmail account for the whole app (Settings → Gmail):
+
+```text
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=http://localhost:8080/api/gmail/callback
+TOKEN_ENCRYPTION_KEY=
+FRONTEND_URL=http://localhost:19044
+```
+
+`TOKEN_ENCRYPTION_KEY` must be a 64-character hex string (32 bytes). Generate one with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+In Google Cloud Console create an OAuth web client, add the redirect URI above, put the consent screen in Testing, and add your Gmail as a test user. Scopes used: `gmail.send` and `userinfo.email`.
+
+There is no login in the app yet — anyone who can reach the API can send as the connected Gmail account.
 
 The committed `.env` file ships with empty values so secrets stay out of git. Put real values only in `.env.local`.
 

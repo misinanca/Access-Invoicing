@@ -4,3 +4,5 @@ export * from "./invoices";
 export * from "./lineItems";
 export * from "./invoiceSettings";
 export * from "./companies";
+export * from "./gmailConnection";
+export * from "./invoiceEmailLog";

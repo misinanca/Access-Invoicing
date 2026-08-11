@@ -5,12 +5,15 @@ import {
   getInvoiceSettings,
   useCreateInvoice,
   useDeleteInvoice,
+  useGetGmailStatus,
+  sendInvoiceEmail,
   getListInvoicesQueryKey,
 } from '@workspace/api-client-react';
 import { PageHeader } from '@/components/page-header';
 import { StatusBadge } from '@/components/status-badge';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { downloadInvoiceFile, downloadInvoiceFilesAsZip } from '@/lib/invoice-download';
+import { downloadInvoiceFile, downloadInvoiceFilesAsZip, generateInvoicePdf } from '@/lib/invoice-download';
+import { blobToBase64 } from '@/lib/invoice-email';
 import { Link } from 'wouter';
 import { Plus, Search, FileText, Trash2, Download, Archive, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -22,7 +25,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from '@/components/ui/label';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
-import { getInvoiceEmailUrl } from '@/lib/invoice-email';
 import type { InvoiceStatus } from '@workspace/api-client-react';
 import {
   AlertDialog,
@@ -42,6 +44,10 @@ export default function Invoices() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<number>>(new Set());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+  const [bulkEmailProgress, setBulkEmailProgress] = useState<{
+    current: number;
+    total: number;
+  } | null>(null);
 
   const params = {
     search: search || undefined,
@@ -49,6 +55,9 @@ export default function Invoices() {
   };
 
   const { data: invoices, isLoading } = useListInvoices(params);
+  const { data: gmailStatus } = useGetGmailStatus();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const visibleInvoices = invoices ?? [];
   const selectedVisibleInvoices = visibleInvoices.filter((invoice) => selectedInvoiceIds.has(invoice.id));
   const allVisibleSelected =
@@ -111,7 +120,65 @@ export default function Invoices() {
     }
   };
 
-  const { toast } = useToast();
+  const handleBulkEmail = async () => {
+    if (selectedVisibleInvoices.length === 0) return;
+
+    if (!gmailStatus?.connected) {
+      toast({
+        title: 'Gmail nu este conectat',
+        description: 'Conectează un cont Gmail din Setări înainte de a trimite facturi.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const withEmail = selectedVisibleInvoices.filter((invoice) => invoice.customerEmail);
+    const missingEmail = selectedVisibleInvoices.length - withEmail.length;
+    if (withEmail.length === 0) {
+      toast({
+        title: 'Nicio factură nu are email',
+        description: 'Adaugă adrese de email clienților selectați.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setBulkEmailProgress({ current: 0, total: withEmail.length });
+    let sent = 0;
+    const failures: string[] = [];
+
+    try {
+      const invoiceSettings = await getInvoiceSettings();
+      for (let index = 0; index < withEmail.length; index += 1) {
+        const selected = withEmail[index];
+        setBulkEmailProgress({ current: index + 1, total: withEmail.length });
+        try {
+          const invoice = await getInvoice(selected.id);
+          const { blob, filename } = await generateInvoicePdf(invoice, invoiceSettings);
+          const pdfBase64 = await blobToBase64(blob);
+          await sendInvoiceEmail(invoice.id, { pdfBase64, filename });
+          sent += 1;
+        } catch {
+          failures.push(selected.invoiceNumber);
+        }
+      }
+    } finally {
+      setBulkEmailProgress(null);
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
+    }
+
+    const parts = [`${sent} trimise`];
+    if (missingEmail > 0) parts.push(`${missingEmail} fără email`);
+    if (failures.length > 0) parts.push(`${failures.length} eșuate (${failures.join(', ')})`);
+
+    toast({
+      title: sent > 0 ? 'Trimitere în masă finalizată' : 'Trimiterea în masă a eșuat',
+      description: parts.join(' · '),
+      variant: failures.length > 0 || missingEmail > 0 ? 'destructive' : undefined,
+    });
+  };
+
+  const isBulkEmailing = bulkEmailProgress != null;
 
   return (
     <>
@@ -154,15 +221,31 @@ export default function Invoices() {
           <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3">
             <p className="text-sm text-foreground">
               {selectedVisibleInvoices.length} invoice{selectedVisibleInvoices.length === 1 ? '' : 's'} selected
+              {isBulkEmailing
+                ? ` · trimitere ${bulkEmailProgress.current}/${bulkEmailProgress.total}`
+                : ''}
             </p>
-            <Button
-              onClick={handleBulkDownload}
-              disabled={isBulkDownloading}
-              data-testid="button-download-selected-invoices"
-            >
-              <Archive className="mr-2 h-4 w-4" />
-              {isBulkDownloading ? 'Preparing ZIP...' : 'Download selected PDFs'}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleBulkEmail}
+                disabled={isBulkDownloading || isBulkEmailing}
+                data-testid="button-email-selected-invoices"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                {isBulkEmailing
+                  ? `Se trimite ${bulkEmailProgress.current}/${bulkEmailProgress.total}...`
+                  : 'Trimite selectate'}
+              </Button>
+              <Button
+                onClick={handleBulkDownload}
+                disabled={isBulkDownloading || isBulkEmailing}
+                data-testid="button-download-selected-invoices"
+              >
+                <Archive className="mr-2 h-4 w-4" />
+                {isBulkDownloading ? 'Preparing ZIP...' : 'Download selected PDFs'}
+              </Button>
+            </div>
           </div>
         )}
 
@@ -282,6 +365,7 @@ export default function Invoices() {
                           invoiceNumber={invoice.invoiceNumber}
                           customerName={invoice.customerName}
                           customerEmail={invoice.customerEmail}
+                          gmailConnected={Boolean(gmailStatus?.connected)}
                         />
                       </td>
                       <td className="px-6 py-4 text-right">
@@ -354,13 +438,16 @@ function EmailInvoiceButton({
   invoiceNumber,
   customerName,
   customerEmail,
+  gmailConnected,
 }: {
   invoiceId: number;
   invoiceNumber: string;
   customerName: string;
   customerEmail: string | null;
+  gmailConnected: boolean;
 }) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
 
   const handleEmail = async () => {
@@ -373,23 +460,37 @@ function EmailInvoiceButton({
       return;
     }
 
+    if (!gmailConnected) {
+      toast({
+        title: 'Gmail nu este conectat',
+        description: 'Conectează un cont Gmail din Setări înainte de a trimite facturi.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const invoice = await getInvoice(invoiceId);
-      const emailUrl = getInvoiceEmailUrl(invoice);
-      if (!emailUrl) {
-        toast({
-          title: 'Lipsește adresa de email',
-          description: `Adaugă o adresă de email pentru ${customerName} înainte de a trimite factura.`,
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      window.location.href = emailUrl;
-    } catch {
+      const [invoice, invoiceSettings] = await Promise.all([
+        getInvoice(invoiceId),
+        getInvoiceSettings(),
+      ]);
+      const { blob, filename } = await generateInvoicePdf(invoice, invoiceSettings);
+      const pdfBase64 = await blobToBase64(blob);
+      await sendInvoiceEmail(invoice.id, { pdfBase64, filename });
+      queryClient.invalidateQueries({ queryKey: getListInvoicesQueryKey() });
       toast({
-        title: 'Factura nu a putut fi pregătită pentru email',
+        title: 'Factura a fost trimisă',
+        description: `Email trimis către ${customerEmail}`,
+      });
+    } catch (error) {
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : 'Încearcă din nou.';
+      toast({
+        title: 'Factura nu a putut fi trimisă',
+        description: message,
         variant: 'destructive',
       });
     } finally {

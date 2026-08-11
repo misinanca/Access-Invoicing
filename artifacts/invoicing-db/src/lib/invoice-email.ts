@@ -17,17 +17,19 @@ export function formatInvoiceDate(date: string): string {
   }).format(new Date(date));
 }
 
-export function getInvoiceEmailUrl(invoice: InvoiceDetail): string | null {
-  if (!invoice.customerEmail) return null;
+export function getInvoiceEmailSubject(invoice: Pick<InvoiceDetail, 'invoiceNumber'>): string {
+  return `Factură ${invoice.invoiceNumber}`;
+}
 
+export function getInvoiceEmailBody(invoice: InvoiceDetail): string {
   const lineItemsText = invoice.lineItems
     .map(
       (item) =>
         `- ${item.description} | ${item.quantity} x ${formatInvoiceCurrency(item.unitPrice)} = ${formatInvoiceCurrency(item.amount)}`,
     )
     .join('\n');
-  const subject = `Factură ${invoice.invoiceNumber}`;
-  const body = [
+
+  return [
     `Bună ziua, ${invoice.customerName},`,
     '',
     `Vă transmitem factura ${invoice.invoiceNumber}.`,
@@ -45,6 +47,15 @@ export function getInvoiceEmailUrl(invoice: InvoiceDetail): string | null {
   ]
     .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
     .join('\n');
+}
 
-  return `mailto:${encodeURIComponent(invoice.customerEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const buffer = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }

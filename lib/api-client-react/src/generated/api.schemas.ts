@@ -27,6 +27,43 @@ export interface ErrorResponse {
   error: string;
 }
 
+export interface GmailStatus {
+  connected: boolean;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  connectedAt?: string | null;
+}
+
+export interface GmailConnectUrl {
+  authUrl: string;
+}
+
+export interface InvoiceEmailSendRequest {
+  /**
+     * Base64-encoded invoice PDF (optionally with a data URL prefix)
+     * @minLength 1
+     */
+  pdfBase64: string;
+  /** Attachment filename, defaults to factura.pdf */
+  filename?: string;
+}
+
+export type InvoiceEmailSendResultStatus = typeof InvoiceEmailSendResultStatus[keyof typeof InvoiceEmailSendResultStatus];
+
+
+export const InvoiceEmailSendResultStatus = {
+  sent: 'sent',
+} as const;
+
+export interface InvoiceEmailSendResult {
+  ok: boolean;
+  invoiceId: number;
+  toEmail: string;
+  gmailMessageId: string;
+  status: InvoiceEmailSendResultStatus;
+}
+
 export interface Customer {
   id: number;
   name: string;
