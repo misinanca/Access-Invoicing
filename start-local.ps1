@@ -4,16 +4,24 @@
   Start the Access-Invoicing API + frontend locally (Windows / PowerShell).
 
 .USAGE
-  From the repo root:
+  From the repo root (no admin required):
     .\start-local.ps1
 
-  If PowerShell blocks scripts:
+  If PowerShell still blocks this script:
     Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 #>
 $ErrorActionPreference = "Stop"
 
 $Root = $PSScriptRoot
 Set-Location $Root
+
+# CurrentUser scope does not need admin. Helps if pnpm.ps1 is blocked.
+try {
+  Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned -Force -ErrorAction Stop
+}
+catch {
+  # Ignore — we call pnpm.cmd via cmd.exe anyway.
+}
 
 function Import-DotEnv([string]$Path) {
   Get-Content -Path $Path | ForEach-Object {
@@ -33,30 +41,76 @@ function Import-DotEnv([string]$Path) {
   }
 }
 
-function Get-PnpmCommand {
-  $cmd = Get-Command pnpm.cmd -ErrorAction SilentlyContinue
-  if ($cmd) {
-    return $cmd.Source
+function Resolve-PnpmCmd {
+  $fromPath = Get-Command "pnpm.cmd" -CommandType Application -ErrorAction SilentlyContinue
+  if ($fromPath) {
+    return $fromPath.Source
   }
 
-  $cmd = Get-Command pnpm -ErrorAction SilentlyContinue
-  if ($cmd) {
-    return $cmd.Source
+  try {
+    $npmBin = (& npm.cmd bin -g 2>$null | Select-Object -First 1)
+    if ($npmBin) {
+      $candidate = Join-Path $npmBin.Trim() "pnpm.cmd"
+      if (Test-Path $candidate) {
+        return $candidate
+      }
+    }
+  }
+  catch {
+    # continue
   }
 
-  throw "pnpm was not found on PATH. Install it with: corepack enable; corepack prepare pnpm@latest --activate"
+  $nodeCmd = Get-Command "node.exe" -CommandType Application -ErrorAction SilentlyContinue
+  if ($nodeCmd) {
+    $nodeDir = Split-Path -Parent $nodeCmd.Source
+    foreach ($name in @("pnpm.cmd", "pnpm")) {
+      $candidate = Join-Path $nodeDir $name
+      if (Test-Path $candidate) {
+        return $candidate
+      }
+    }
+  }
+
+  throw @"
+pnpm.cmd was not found on PATH.
+
+Install without admin:
+  corepack enable
+  corepack prepare pnpm@latest --activate
+
+Or:
+  npm install -g pnpm
+
+Then open a new PowerShell window and retry.
+"@
 }
 
-function Invoke-Pnpm([string[]]$Args) {
-  & $script:Pnpm @Args
+function Invoke-Pnpm([string[]]$PnArgs) {
+  # Use cmd.exe + pnpm.cmd so PowerShell execution policy cannot block the pnpm shim.
+  $quoted = $PnArgs | ForEach-Object {
+    if ($_ -match '[\s"]') {
+      '"' + ($_ -replace '"', '\"') + '"'
+    }
+    else {
+      $_
+    }
+  }
+  $commandLine = '"' + $script:PnpmCmd + '" ' + ($quoted -join " ")
+
+  Write-Host ">$ commandLine"
+  & cmd.exe /c $commandLine
   if ($LASTEXITCODE -ne 0) {
-    throw "pnpm $($Args -join ' ') failed with exit code $LASTEXITCODE"
+    throw "pnpm failed (exit $LASTEXITCODE): $commandLine"
   }
 }
 
-function Wait-ApiHealthy([string]$Port, [int]$TimeoutSec = 60) {
+function Wait-ApiHealthy([string]$Port, [int]$TimeoutSec = 90) {
   $deadline = (Get-Date).AddSeconds($TimeoutSec)
   while ((Get-Date) -lt $deadline) {
+    if ($script:ApiProcess -and $script:ApiProcess.HasExited) {
+      throw "API process exited early with code $($script:ApiProcess.ExitCode). Check the API output above."
+    }
+
     try {
       $response = Invoke-WebRequest -Uri "http://localhost:$Port/api/healthz" -UseBasicParsing -TimeoutSec 2
       if ($response.StatusCode -eq 200) {
@@ -66,6 +120,7 @@ function Wait-ApiHealthy([string]$Port, [int]$TimeoutSec = 60) {
     catch {
       # keep waiting
     }
+
     Start-Sleep -Seconds 1
   }
 
@@ -96,17 +151,19 @@ if (-not $env:PORT) {
 
 $ApiPort = $env:PORT
 $FrontendPort = "19044"
-$script:Pnpm = Get-PnpmCommand
-$apiProcess = $null
+$script:PnpmCmd = Resolve-PnpmCmd
+$script:ApiProcess = $null
 
+Write-Host "Using pnpm: $script:PnpmCmd"
 Write-Host "Building API..."
 $env:NODE_ENV = "development"
 Invoke-Pnpm @("--filter", "@workspace/api-server", "run", "build")
 
 Write-Host "Starting API on http://localhost:$ApiPort ..."
-$apiProcess = Start-Process `
-  -FilePath $script:Pnpm `
-  -ArgumentList @("--filter", "@workspace/api-server", "run", "start") `
+$apiCmd = '"' + $script:PnpmCmd + '" --filter @workspace/api-server run start'
+$script:ApiProcess = Start-Process `
+  -FilePath "cmd.exe" `
+  -ArgumentList @("/c", $apiCmd) `
   -WorkingDirectory $Root `
   -PassThru `
   -NoNewWindow
@@ -123,7 +180,7 @@ try {
 }
 finally {
   Write-Host "`nStopping API..."
-  if ($apiProcess -and -not $apiProcess.HasExited) {
-    Stop-ProcessTree -ProcessId $apiProcess.Id
+  if ($script:ApiProcess -and -not $script:ApiProcess.HasExited) {
+    Stop-ProcessTree -ProcessId $script:ApiProcess.Id
   }
 }

@@ -366,17 +366,26 @@ Use the force variant cautiously because it can apply more aggressive schema cha
 After PostgreSQL is running, `.env.local` is filled in, and dependencies are installed:
 
 ```powershell
+.\start-local.cmd
+```
+
+Or:
+
+```powershell
 .\start-local.ps1
 ```
 
 This builds/starts the API on port `8080`, waits for health, then starts the frontend on port `19044`.
 
-If PowerShell blocks the script:
+`start-local.cmd` does not need admin and bypasses PowerShell script policy for this run only.
+
+If `.\start-local.ps1` is blocked:
 
 ```powershell
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
+That CurrentUser policy change also does not need admin.
 ### macOS / Linux / Git Bash
 
 After PostgreSQL is running and the database has been created:
